@@ -24,7 +24,7 @@ streamlit run dkv_checker.py
 
 Einzelne Streamlit-App (`dkv_checker.py`, ~2380 Zeilen) mit fünf Tabs:
 
-1. **Import & Analyse**: Multi-Datei-Upload (CSV/PDF), automatischer Import, Duplikatsprüfung
+1. **Import & Analyse**: Multi-Datei-Upload (CSV/PDF), automatischer Import, Duplikatsprüfung, **manuelle Tankvorgänge**
 2. **Verbrauchsentwicklung**: Altair-Charts mit Datumsfilter (Von/Bis), Fahrzeugauswahl, monatliche Aggregation
 3. **Historie**: Persistente Datenspeicherung, Filter (Fahrzeug, Zeitraum, Quelldatei), CSV-Export, direkte Tabellenbearbeitung, Status-Spalte mit Kurzformen
 4. **Auffälligkeiten**: Zentrale Übersicht mit Fahrzeug-Filter, Quittierung (mit Pflichtkommentar), editierbare Tabelle, E-Mail-Benachrichtigung an Besitzer
@@ -36,15 +36,20 @@ Einzelne Streamlit-App (`dkv_checker.py`, ~2380 Zeilen) mit fünf Tabs:
 
 ```
 dkv-checker/
-├── dkv_checker.py      # Hauptprogramm (~2380 Zeilen)
+├── dkv_checker.py      # Hauptprogramm (~2600 Zeilen)
+├── i18n.py             # Mehrsprachigkeit (DE/EN)
 ├── requirements.txt    # streamlit, pandas, altair, pdfplumber
 ├── start.command       # Startskript (macOS, ausführbar)
+├── docker-compose.yml  # Docker Compose mit Nginx HTTPS
+├── nginx.conf          # Nginx Reverse Proxy Konfiguration
+├── generate-ssl.sh     # SSL-Zertifikat Generator
 ├── handbuch.html       # Benutzerhandbuch (HTML)
 ├── historie.json       # Gespeicherte Tankdaten (wird erstellt)
 ├── fahrzeuge.json      # Fahrzeug-Besitzer-Zuordnung + Verbrauchsgrenzen (wird erstellt)
 ├── smtp_config.json    # SMTP-Konfiguration (wird erstellt)
 ├── email_vorlage.json  # E-Mail-Vorlage (wird erstellt)
 ├── benutzer.json       # Benutzerverwaltung mit gehashten Passwörtern (wird erstellt)
+├── ssl/                # SSL-Zertifikate (wird erstellt, nicht im Git)
 ├── CLAUDE.md           # Diese Datei
 └── venv/               # Virtuelle Python-Umgebung
 ```
@@ -103,6 +108,8 @@ dkv-checker/
 | `hash_passwort()` / `pruefe_passwort()` | PBKDF2-SHA256 Passwort-Hashing |
 | `authentifiziere_benutzer()` | Login mit gehashtem Passwort |
 | `aktueller_benutzer_hat_recht()` | Rechteprüfung für Aktionen |
+| `speichere_manuellen_tankvorgang()` | Speichert manuell erfasste Tankvorgänge |
+| `_()` / `t()` | Übersetzungsfunktionen für i18n |
 
 ## Prüflogik
 
@@ -245,6 +252,56 @@ Gespeichert in `benutzer.json`:
   ]
 }
 ```
+
+## Manuelle Tankvorgänge
+
+Im Import-Tab können Tankvorgänge manuell erfasst werden (z.B. für private Tankungen):
+
+- Fahrzeugauswahl (aus Historie oder neues Kennzeichen)
+- Datum, Uhrzeit, km-Stand, Menge, Betrag
+- Tankstelle, Warenart, Zahlungsart, Notiz
+- Quelldatei wird als "MANUELL" markiert
+- Duplikatsprüfung (Kennzeichen + Datum + Zeit)
+- Erfordert Recht "importieren"
+
+## HTTPS mit Nginx
+
+Docker-basiertes Setup mit HTTPS-Unterstützung:
+
+```bash
+# 1. SSL-Zertifikat generieren
+./generate-ssl.sh
+
+# 2. Container starten
+docker-compose up -d
+
+# 3. Öffnen: https://localhost
+```
+
+**Architektur:**
+- Nginx als Reverse Proxy (Ports 80/443)
+- Automatische HTTP→HTTPS Umleitung
+- WebSocket-Support für Streamlit
+- DKV-Checker nur intern erreichbar (Port 8501)
+
+## Mehrsprachigkeit (i18n)
+
+Unterstützte Sprachen: Deutsch (Standard), English
+
+**Verwendung:**
+```python
+from i18n import SPRACHEN, t
+
+# Übersetzung abrufen
+text = t("login.benutzername", "en")  # "Username"
+
+# Mit Platzhaltern
+text = t("import.import_erfolgreich", "de", count=5, files=2)
+```
+
+**Sprachauswahl:** In der Sidebar über das Dropdown-Menü.
+
+**Erweiterung:** Neue Strings in `i18n.py` → `TEXTE` Dictionary hinzufügen.
 
 ## Nächste mögliche Erweiterungen
 

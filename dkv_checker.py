@@ -15,6 +15,9 @@ from io import StringIO, BytesIO
 from datetime import datetime
 import zipfile
 
+# Mehrsprachigkeit importieren
+from i18n import SPRACHEN, t
+
 # Konfiguration
 st.set_page_config(page_title="DKV Abrechnungs-Checker", layout="wide")
 
@@ -68,6 +71,13 @@ if "muss_passwort_aendern" not in st.session_state:
     st.session_state["muss_passwort_aendern"] = False
 if "aktiver_tab" not in st.session_state:
     st.session_state["aktiver_tab"] = None
+if "sprache" not in st.session_state:
+    st.session_state["sprache"] = "de"
+
+# Hilfsfunktion für Übersetzungen mit aktueller Sprache
+def _(key, **kwargs):
+    """Kurzform für t() mit automatischer Sprachauswahl aus Session State"""
+    return t(key, st.session_state.get("sprache", "de"), **kwargs)
 
 def aktueller_benutzer_hat_recht(recht):
     """Prüft ob der aktuell eingeloggte Benutzer ein bestimmtes Recht hat"""
@@ -354,6 +364,18 @@ def hole_besitzer_fuer_kennzeichen(fahrzeuge, kennzeichen):
         if f["kennzeichen"] == kennzeichen:
             return f
     return None
+
+def speichere_manuellen_tankvorgang(historie, eintrag):
+    """Speichert einen manuell erfassten Tankvorgang"""
+    eintrag["quelldatei"] = "MANUELL"
+    # Quittierungs-Felder initialisieren
+    eintrag["quittiert"] = False
+    eintrag["quittiert_kommentar"] = ""
+    eintrag["quittiert_von"] = ""
+    eintrag["quittiert_am"] = ""
+    historie["tankvorgaenge"].append(eintrag)
+    speichere_historie(historie)
+    return True
 
 def hole_alle_kennzeichen_aus_historie(historie):
     """Gibt alle eindeutigen Kennzeichen aus der Historie zurück"""
@@ -847,60 +869,71 @@ def style_auffaelligkeiten(row, auffaellige_ids):
 
 # --- Sidebar: Login ---
 with st.sidebar:
-    st.markdown("### Benutzer")
+    # Sprachauswahl
+    st.selectbox(
+        "🌐",
+        list(SPRACHEN.keys()),
+        format_func=lambda x: SPRACHEN[x],
+        key="sprache",
+        label_visibility="collapsed"
+    )
+    st.markdown("---")
+
+    st.markdown(f"### {_('login.benutzer')}")
 
     if st.session_state["logged_in"]:
         # Passwort-Änderung erforderlich?
         if st.session_state.get("muss_passwort_aendern", False):
-            st.warning("Bitte ändern Sie Ihr Passwort!")
+            st.warning(_("login.bitte_aendern"))
             with st.form("passwort_aendern_form"):
-                neues_passwort = st.text_input("Neues Passwort", type="password")
-                neues_passwort_bestaetigen = st.text_input("Passwort bestätigen", type="password")
-                pw_submitted = st.form_submit_button("Passwort ändern")
+                neues_passwort = st.text_input(_("login.neues_passwort"), type="password")
+                neues_passwort_bestaetigen = st.text_input(_("login.passwort_bestaetigen"), type="password")
+                pw_submitted = st.form_submit_button(_("login.passwort_aendern"))
 
                 if pw_submitted:
                     if len(neues_passwort) < 6:
-                        st.error("Passwort muss mindestens 6 Zeichen lang sein")
+                        st.error(_("login.mind_6_zeichen"))
                     elif neues_passwort != neues_passwort_bestaetigen:
-                        st.error("Passwörter stimmen nicht überein")
+                        st.error(_("login.passwort_ungleich"))
                     else:
                         aktualisiere_benutzer(st.session_state["username"], {
                             "passwort_hash": hash_passwort(neues_passwort),
                             "muss_passwort_aendern": False
                         })
                         st.session_state["muss_passwort_aendern"] = False
-                        st.success("Passwort geändert!")
+                        st.success(_("login.passwort_geaendert"))
                         st.rerun()
         else:
             # Normale Anzeige
-            rolle_name = ROLLEN.get(st.session_state["user_rolle"], {}).get("name", st.session_state["user_rolle"])
+            rolle_key = st.session_state["user_rolle"]
+            rolle_name = _("rollen." + rolle_key) if rolle_key in ["admin", "manager", "viewer"] else rolle_key
             anzeige_name = st.session_state.get("user_name") or st.session_state["username"]
-            st.success(f"Angemeldet als: {anzeige_name}")
-            st.caption(f"Rolle: {rolle_name}")
+            st.success(_("login.angemeldet_als", name=anzeige_name))
+            st.caption(_("login.rolle", rolle=rolle_name))
 
             # Passwort ändern (optional)
-            with st.expander("Passwort ändern"):
+            with st.expander(_("login.passwort_aendern")):
                 with st.form("passwort_optional_form"):
-                    aktuelles_pw = st.text_input("Aktuelles Passwort", type="password", key="pw_aktuell")
-                    neues_pw = st.text_input("Neues Passwort", type="password", key="pw_neu")
-                    neues_pw_best = st.text_input("Passwort bestätigen", type="password", key="pw_best")
-                    pw_opt_submitted = st.form_submit_button("Ändern")
+                    aktuelles_pw = st.text_input(_("login.aktuelles_passwort"), type="password", key="pw_aktuell")
+                    neues_pw = st.text_input(_("login.neues_passwort"), type="password", key="pw_neu")
+                    neues_pw_best = st.text_input(_("login.passwort_bestaetigen"), type="password", key="pw_best")
+                    pw_opt_submitted = st.form_submit_button(_("login.passwort_aendern"))
 
                     if pw_opt_submitted:
                         benutzer = finde_benutzer(st.session_state["username"])
                         if not pruefe_passwort(aktuelles_pw, benutzer.get("passwort_hash", "")):
-                            st.error("Aktuelles Passwort ist falsch")
+                            st.error(_("login.passwort_falsch"))
                         elif len(neues_pw) < 6:
-                            st.error("Neues Passwort muss mindestens 6 Zeichen lang sein")
+                            st.error(_("login.mind_6_zeichen"))
                         elif neues_pw != neues_pw_best:
-                            st.error("Passwörter stimmen nicht überein")
+                            st.error(_("login.passwort_ungleich"))
                         else:
                             aktualisiere_benutzer(st.session_state["username"], {
                                 "passwort_hash": hash_passwort(neues_pw)
                             })
-                            st.success("Passwort geändert!")
+                            st.success(_("login.passwort_geaendert"))
 
-            if st.button("Abmelden"):
+            if st.button(_("login.abmelden")):
                 st.session_state["logged_in"] = False
                 st.session_state["username"] = ""
                 st.session_state["user_rolle"] = ""
@@ -909,9 +942,9 @@ with st.sidebar:
                 st.rerun()
     else:
         with st.form("login_form"):
-            username = st.text_input("Benutzername")
-            password = st.text_input("Passwort", type="password")
-            submitted = st.form_submit_button("Anmelden")
+            username = st.text_input(_("login.benutzername"))
+            password = st.text_input(_("login.passwort"), type="password")
+            submitted = st.form_submit_button(_("login.anmelden"))
 
             if submitted:
                 benutzer = authentifiziere_benutzer(username, password)
@@ -923,24 +956,26 @@ with st.sidebar:
                     st.session_state["muss_passwort_aendern"] = benutzer.get("muss_passwort_aendern", False)
                     st.rerun()
                 else:
-                    st.error("Ungültige Anmeldedaten oder Konto deaktiviert")
+                    st.error(_("login.ungueltige_daten"))
 
     st.markdown("---")
-    st.markdown("### Info")
+    st.markdown(f"### {_('sidebar.info')}")
     if st.session_state["logged_in"]:
         rolle = st.session_state["user_rolle"]
-        if rolle in ROLLEN:
-            st.info(ROLLEN[rolle]["beschreibung"])
+        if rolle in ["admin", "manager", "viewer"]:
+            st.info(_("rollen." + rolle + "_desc"))
     else:
-        st.info("Melden Sie sich an, um Daten bearbeiten zu können.")
+        st.info(_("sidebar.anmelden_info"))
 
     # Spenden-Hinweis
     st.markdown("---")
+    spende_text = _("sidebar.spende_text")
+    spende_link = _("sidebar.spende_link")
     st.markdown(
-        """
+        f"""
         <div style="text-align: center; padding: 10px; background-color: #f0f2f6; border-radius: 5px;">
-            <small>Diese Software ist kostenlos.<br>
-            <a href="https://www.paypal.com/paypalme/christiansauer87" target="_blank">☕ Entwicklung unterstützen</a></small>
+            <small>{spende_text}<br>
+            <a href="https://www.paypal.com/paypalme/christiansauer87" target="_blank">☕ {spende_link}</a></small>
         </div>
         """,
         unsafe_allow_html=True
@@ -948,7 +983,7 @@ with st.sidebar:
 
 # --- Hauptanwendung ---
 
-st.title("DKV Abrechnungs-Checker")
+st.title(_("app_title"))
 
 # Historie laden
 historie = lade_historie()
@@ -965,18 +1000,18 @@ smtp_config = lade_smtp_config()
 
 # Tabs für verschiedene Ansichten
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📤 Import & Analyse",
-    "📊 Verbrauchsentwicklung",
-    "📚 Historie",
-    f"⚠️ Auffälligkeiten ({len(offene_auffaelligkeiten)})",
-    "⚙️ Einstellungen",
-    "📖 Hilfe"
+    f"📤 {_('tabs.import')}",
+    f"📊 {_('tabs.verbrauch')}",
+    f"📚 {_('tabs.historie')}",
+    f"⚠️ {_('tabs.auffaelligkeiten')} ({len(offene_auffaelligkeiten)})",
+    f"⚙️ {_('tabs.einstellungen')}",
+    f"📖 {_('tabs.hilfe')}"
 ])
 
 # --- TAB 1: Import & Analyse ---
 with tab1:
     uploaded_files = st.file_uploader(
-        "DKV-Dateien hochladen (CSV oder PDF)",
+        _("import.upload_label"),
         type=["csv", "pdf"],
         accept_multiple_files=True
     )
@@ -999,13 +1034,13 @@ with tab1:
 
         # Warnung für bereits importierte Dateien
         if bereits_importiert:
-            st.warning(f"**{len(bereits_importiert)} Datei(en) bereits importiert** (werden übersprungen): {', '.join(bereits_importiert)}")
+            st.warning(f"**{_('import.bereits_importiert', count=len(bereits_importiert))}** {_('import.werden_uebersprungen')}: {', '.join(bereits_importiert)}")
 
         if not neue_dateien:
-            st.info("Alle hochgeladenen Dateien wurden bereits importiert.")
+            st.info(_("import.alle_importiert"))
         else:
             # Status-Anzeige
-            st.info(f"**{len(neue_dateien)} neue Datei(en)** werden verarbeitet...")
+            st.info(f"**{_('import.neue_dateien', count=len(neue_dateien))}**")
 
             # Alle Daten sammeln
             alle_daten = []
@@ -1018,7 +1053,7 @@ with tab1:
                         pdf_bytes = uploaded_file.read()
                         df_clean = parse_dkv_pdf(pdf_bytes)
                         if df_clean.empty:
-                            import_fehler.append(f"{uploaded_file.name}: Keine Daten aus PDF extrahiert")
+                            import_fehler.append(f"{uploaded_file.name}: {_('import.keine_daten_pdf')}")
                             continue
                     else:
                         content = uploaded_file.read().decode("utf-8")
@@ -1045,7 +1080,7 @@ with tab1:
                 # Alle Rohdaten zusammenführen
                 df_alle_roh = pd.concat(alle_rohdaten, ignore_index=True)
 
-                st.subheader("Rohdaten")
+                st.subheader(_("import.rohdaten"))
                 st.dataframe(df_alle_roh, use_container_width=True)
 
             if alle_daten:
@@ -1054,7 +1089,7 @@ with tab1:
                 df_fuel_combined = berechne_verbrauch(df_fuel_combined)
 
                 # --- Verbrauchsanalyse ---
-                st.subheader("Verbrauchsanalyse pro Fahrzeug")
+                st.subheader(_("import.verbrauchsanalyse"))
 
                 warnungen = []
                 ergebnisse = []
@@ -1147,25 +1182,25 @@ with tab1:
                         })
 
                 # Zusammenfassung
-                st.subheader("Zusammenfassung")
+                st.subheader(_("import.zusammenfassung"))
                 if ergebnisse:
                     st.dataframe(pd.DataFrame(ergebnisse), use_container_width=True)
 
                 # Warnungen
-                st.subheader("Warnungen & Auffälligkeiten")
+                st.subheader(_("import.warnungen"))
                 if warnungen:
                     warn_df = pd.DataFrame(warnungen)
                     st.dataframe(warn_df.style.apply(lambda x: ['background-color: #ffcccc'] * len(x), axis=1),
                                 use_container_width=True)
-                    st.warning(f"{len(warnungen)} Auffälligkeit(en) gefunden!")
+                    st.warning(_("import.auffaelligkeiten_gefunden", count=len(warnungen)))
                 else:
-                    st.success("Keine Auffälligkeiten gefunden.")
+                    st.success(_("import.keine_auffaelligkeiten"))
 
                 # --- Automatisches Speichern ---
-                st.subheader("Import-Status")
+                st.subheader(_("import.import_status"))
 
                 if not kann_importieren:
-                    st.info("Sie haben keine Berechtigung zum Importieren. Melden Sie sich mit einem entsprechenden Konto an.")
+                    st.info(_("import.keine_berechtigung"))
                 else:
                     # Automatisch speichern
                     neue_vorgaenge_gesamt = 0
@@ -1217,31 +1252,163 @@ with tab1:
                     # Erfolgsmeldung
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("Neue Tankvorgänge", neue_vorgaenge_gesamt)
+                        st.metric(_("import.neue_tankvorgaenge"), neue_vorgaenge_gesamt)
                     with col2:
-                        st.metric("Dateien importiert", len(importierte_dateien))
+                        st.metric(_("import.dateien_importiert"), len(importierte_dateien))
                     with col3:
-                        st.metric("Duplikate übersprungen", duplikate_gesamt)
+                        st.metric(_("import.duplikate_uebersprungen"), duplikate_gesamt)
 
                     if neue_vorgaenge_gesamt > 0:
-                        st.success(f"Import erfolgreich: {neue_vorgaenge_gesamt} neue Tankvorgänge aus {len(importierte_dateien)} Datei(en) gespeichert.")
-                        st.caption("Gefällt Ihnen diese Software? [Unterstützen Sie die Entwicklung mit einer Spende](https://www.paypal.com/paypalme/christiansauer87)")
+                        st.success(_("import.import_erfolgreich", count=neue_vorgaenge_gesamt, files=len(importierte_dateien)))
+                        st.caption(f"☕ [{_('sidebar.spende_link')}](https://www.paypal.com/paypalme/christiansauer87)")
                     elif duplikate_gesamt > 0:
-                        st.info("Alle Datensätze waren bereits in der Historie vorhanden (Duplikate).")
+                        st.info(_("import.alle_duplikate"))
 
                     # Liste der importierten Dateien
-                    with st.expander("Importierte Dateien anzeigen"):
+                    with st.expander(_("import.importierte_anzeigen")):
                         for dateiname in importierte_dateien:
                             st.write(f"- {dateiname}")
 
     else:
-        st.info("Bitte DKV-Dateien (CSV oder PDF) hochladen, um die Analyse zu starten. Sie können mehrere Dateien gleichzeitig auswählen.")
+        st.info(_("import.upload_info"))
+
+    # --- Manueller Tankvorgang ---
+    st.markdown("---")
+    st.subheader(_("manual.titel"))
+
+    if aktueller_benutzer_hat_recht("importieren"):
+        with st.expander(_("manual.expander")):
+            # Alle Kennzeichen aus Historie und Fahrzeug-Config sammeln
+            alle_kennzeichen_manuell = set(hole_alle_kennzeichen_aus_historie(historie))
+            for fz in fahrzeuge_config.get("fahrzeuge", []):
+                alle_kennzeichen_manuell.add(fz["kennzeichen"])
+            alle_kennzeichen_manuell = sorted(list(alle_kennzeichen_manuell))
+
+            with st.form("manueller_tankvorgang"):
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    # Fahrzeug-Auswahl mit Option für neues Kennzeichen
+                    kennzeichen_optionen = [_("manual.neues_kennzeichen")] + alle_kennzeichen_manuell
+                    kennzeichen_auswahl = st.selectbox(
+                        _("manual.fahrzeug"),
+                        kennzeichen_optionen,
+                        key="manual_kennzeichen_select"
+                    )
+                    neues_kennzeichen = st.text_input(
+                        _("manual.kennzeichen_input"),
+                        placeholder="AB-CD 123",
+                        key="manual_neues_kennzeichen"
+                    )
+
+                    manual_datum = st.date_input(_("manual.datum"), key="manual_datum")
+                    manual_zeit = st.time_input(_("manual.uhrzeit"), key="manual_zeit")
+                    manual_km_stand = st.number_input(
+                        _("manual.km_stand"),
+                        min_value=0,
+                        step=1,
+                        key="manual_km_stand"
+                    )
+
+                with col2:
+                    manual_menge = st.number_input(
+                        _("manual.menge"),
+                        min_value=0.0,
+                        step=0.1,
+                        format="%.2f",
+                        key="manual_menge"
+                    )
+                    manual_betrag = st.number_input(
+                        _("manual.betrag"),
+                        min_value=0.0,
+                        step=0.01,
+                        format="%.2f",
+                        key="manual_betrag"
+                    )
+                    manual_tankstelle = st.text_input(
+                        _("manual.tankstelle"),
+                        placeholder="z.B. ARAL Hamburg",
+                        key="manual_tankstelle"
+                    )
+                    manual_warenart = st.selectbox(
+                        _("manual.warenart"),
+                        ["DIESEL", "SUPER", "BENZIN", "EURO SUPER"],
+                        key="manual_warenart"
+                    )
+
+                manual_zahlungsart = st.selectbox(
+                    _("manual.zahlungsart"),
+                    [_("manual.zahlungsart_privat"), _("manual.zahlungsart_firma"), _("manual.zahlungsart_sonstige")],
+                    key="manual_zahlungsart"
+                )
+                manual_notiz = st.text_area(
+                    _("manual.notiz"),
+                    placeholder="z.B. Tankstelle ohne DKV-Akzeptanz",
+                    key="manual_notiz"
+                )
+
+                if st.form_submit_button(_("manual.speichern"), type="primary"):
+                    # Kennzeichen bestimmen
+                    if kennzeichen_auswahl == _("manual.neues_kennzeichen"):
+                        final_kennzeichen = neues_kennzeichen.strip().upper()
+                    else:
+                        final_kennzeichen = kennzeichen_auswahl
+
+                    # Validierung
+                    fehler = []
+                    if not final_kennzeichen:
+                        fehler.append(_("manual.fehler_kennzeichen"))
+                    if manual_menge <= 0:
+                        fehler.append(_("manual.fehler_menge"))
+                    if manual_km_stand <= 0:
+                        fehler.append(_("manual.fehler_km"))
+
+                    # Duplikatsprüfung
+                    datum_str = manual_datum.strftime("%Y-%m-%d")
+                    zeit_str = manual_zeit.strftime("%H:%M")
+                    ist_duplikat = any(
+                        t["kennzeichen"] == final_kennzeichen and
+                        t["datum"] == datum_str and
+                        t["zeit"] == zeit_str
+                        for t in historie["tankvorgaenge"]
+                    )
+                    if ist_duplikat:
+                        fehler.append(_("manual.fehler_duplikat"))
+
+                    if fehler:
+                        for f in fehler:
+                            st.error(f)
+                    else:
+                        # Eintrag erstellen
+                        eintrag = {
+                            "kennzeichen": final_kennzeichen,
+                            "datum": datum_str,
+                            "zeit": zeit_str,
+                            "km_stand": manual_km_stand,
+                            "menge_liter": manual_menge,
+                            "verbrauch": None,  # Wird beim Speichern automatisch berechnet
+                            "km_differenz": None,
+                            "betrag_eur": manual_betrag,
+                            "tankstelle": manual_tankstelle,
+                            "warenart": manual_warenart,
+                            "zahlungsart": manual_zahlungsart,
+                            "notiz": manual_notiz
+                        }
+
+                        speichere_manuellen_tankvorgang(historie, eintrag)
+                        st.success(_("manual.erfolg", kennzeichen=final_kennzeichen, datum=manual_datum.strftime('%d.%m.%Y')))
+                        st.rerun()
+    else:
+        st.info(_("manual.keine_berechtigung"))
 
 # --- TAB 2: Verbrauchsentwicklung ---
 with tab2:
-    st.subheader("Verbrauchsentwicklung über Zeit")
+    st.subheader(_("verbrauch.titel"))
 
-    if historie["tankvorgaenge"]:
+    # Daten erst nach Login anzeigen
+    if not st.session_state["logged_in"]:
+        st.info(_("sidebar.anmelden_info"))
+    elif historie["tankvorgaenge"]:
         df_historie = pd.DataFrame(historie["tankvorgaenge"])
         df_historie["datum"] = pd.to_datetime(df_historie["datum"])
         df_historie = df_historie.sort_values(["datum", "zeit"])
@@ -1252,7 +1419,7 @@ with tab2:
 
         if len(df_chart) > 0:
             # Filter-Bereich
-            st.markdown("#### Filter")
+            st.markdown(f"#### {_('verbrauch.filter')}")
 
             # Datumsbereich ermitteln
             min_datum = df_chart["datum"].min().date()
@@ -1261,7 +1428,7 @@ with tab2:
             col_filter1, col_filter2, col_filter3 = st.columns([1, 1, 2])
             with col_filter1:
                 start_datum = st.date_input(
-                    "Von",
+                    _("verbrauch.von"),
                     value=min_datum,
                     min_value=min_datum,
                     max_value=max_datum,
@@ -1269,7 +1436,7 @@ with tab2:
                 )
             with col_filter2:
                 end_datum = st.date_input(
-                    "Bis",
+                    _("verbrauch.bis"),
                     value=max_datum,
                     min_value=min_datum,
                     max_value=max_datum,
@@ -1279,7 +1446,7 @@ with tab2:
                 # Fahrzeugauswahl
                 alle_fahrzeuge = df_chart["kennzeichen"].unique().tolist()
                 ausgewaehlte = st.multiselect(
-                    "Fahrzeuge",
+                    _("verbrauch.fahrzeuge"),
                     alle_fahrzeuge,
                     default=alle_fahrzeuge,
                     key="verbrauch_fahrzeuge"
@@ -1295,7 +1462,7 @@ with tab2:
                 df_filtered = df_chart[df_chart["kennzeichen"].isin(ausgewaehlte)]
 
                 # Verbrauchsdiagramm
-                st.markdown("### Verbrauch pro Tankvorgang")
+                st.markdown(f"### {_('verbrauch.pro_tankvorgang')}")
 
                 chart = alt.Chart(df_filtered).mark_line(point=True).encode(
                     x=alt.X("datum:T", title="Datum"),
@@ -1313,7 +1480,7 @@ with tab2:
                 st.altair_chart(chart, use_container_width=True)
 
                 # Durchschnittsverbrauch pro Monat
-                st.markdown("### Monatlicher Durchschnittsverbrauch")
+                st.markdown(f"### {_('verbrauch.monatlich')}")
 
                 df_filtered["monat"] = df_filtered["datum"].dt.to_period("M").astype(str)
                 monatlich = df_filtered.groupby(["monat", "kennzeichen"]).agg({
@@ -1338,7 +1505,7 @@ with tab2:
                 st.altair_chart(chart_monat, use_container_width=True)
 
                 # Kosten pro Monat
-                st.markdown("### Monatliche Kosten")
+                st.markdown(f"### {_('verbrauch.kosten')}")
 
                 chart_kosten = alt.Chart(monatlich).mark_bar().encode(
                     x=alt.X("monat:N", title="Monat"),
@@ -1354,7 +1521,7 @@ with tab2:
                 st.altair_chart(chart_kosten, use_container_width=True)
 
                 # Statistik-Tabelle
-                st.markdown("### Gesamtstatistik")
+                st.markdown(f"### {_('verbrauch.statistik')}")
 
                 statistik = df_filtered.groupby("kennzeichen").agg({
                     "verbrauch": ["mean", "min", "max"],
@@ -1372,62 +1539,65 @@ with tab2:
                 st.dataframe(statistik, use_container_width=True)
             else:
                 if not ausgewaehlte:
-                    st.info("Bitte wählen Sie mindestens ein Fahrzeug aus.")
+                    st.info(_("verbrauch.fahrzeug_waehlen"))
                 else:
-                    st.warning("Keine Daten im ausgewählten Zeitraum vorhanden.")
+                    st.warning(_("verbrauch.keine_daten_zeitraum"))
         else:
-            st.warning("Keine gültigen Verbrauchsdaten in der Historie.")
+            st.warning(_("verbrauch.keine_daten"))
     else:
-        st.info("Noch keine Daten in der Historie. Importiere zuerst eine CSV-Datei im Tab 'Import & Analyse'.")
+        st.info(_("verbrauch.keine_historie"))
 
 # --- TAB 3: Historie ---
 with tab3:
-    st.subheader("Gespeicherte Daten")
+    st.subheader(_("historie.titel"))
 
-    if historie["tankvorgaenge"]:
+    # Daten erst nach Login anzeigen
+    if not st.session_state["logged_in"]:
+        st.info(_("sidebar.anmelden_info"))
+    elif historie["tankvorgaenge"]:
         df_alle = pd.DataFrame(historie["tankvorgaenge"])
         df_alle["datum"] = pd.to_datetime(df_alle["datum"])
         df_alle = df_alle.sort_values(["datum", "zeit"], ascending=False)
 
         # Alle Tankvorgänge
-        st.markdown("### Alle Tankvorgänge")
+        st.markdown(f"### {_('historie.alle_tankvorgaenge')}")
 
         # Filter
         col1, col2, col3 = st.columns(3)
         with col1:
             fahrzeug_filter = st.selectbox(
-                "Nach Fahrzeug filtern",
-                ["Alle"] + df_alle["kennzeichen"].unique().tolist()
+                _("historie.filter_fahrzeug"),
+                [_("historie.alle")] + df_alle["kennzeichen"].unique().tolist()
             )
         with col2:
             zeitraum = st.selectbox(
-                "Zeitraum",
-                ["Alle", "Letzte 30 Tage", "Letzte 90 Tage", "Letztes Jahr"]
+                _("historie.filter_zeitraum"),
+                [_("historie.alle"), _("historie.letzte_30"), _("historie.letzte_90"), _("historie.letztes_jahr")]
             )
         with col3:
             # Quelldatei-Filter
             quelldateien = df_alle["quelldatei"].dropna().unique().tolist()
             quelldateien = [q for q in quelldateien if q]  # Leere entfernen
             datei_filter = st.selectbox(
-                "Nach Quelldatei filtern",
-                ["Alle"] + quelldateien
+                _("historie.filter_quelldatei"),
+                [_("historie.alle")] + quelldateien
             )
 
         df_display = df_alle.copy()
 
-        if fahrzeug_filter != "Alle":
+        if fahrzeug_filter != _("historie.alle"):
             df_display = df_display[df_display["kennzeichen"] == fahrzeug_filter]
 
-        if zeitraum != "Alle":
+        if zeitraum != _("historie.alle"):
             heute = pd.Timestamp.now()
-            if zeitraum == "Letzte 30 Tage":
+            if zeitraum == _("historie.letzte_30"):
                 df_display = df_display[df_display["datum"] >= heute - pd.Timedelta(days=30)]
-            elif zeitraum == "Letzte 90 Tage":
+            elif zeitraum == _("historie.letzte_90"):
                 df_display = df_display[df_display["datum"] >= heute - pd.Timedelta(days=90)]
-            elif zeitraum == "Letztes Jahr":
+            elif zeitraum == _("historie.letztes_jahr"):
                 df_display = df_display[df_display["datum"] >= heute - pd.Timedelta(days=365)]
 
-        if datei_filter != "Alle":
+        if datei_filter != _("historie.alle"):
             df_display = df_display[df_display["quelldatei"] == datei_filter]
 
         # Index zurücksetzen nach Filtern
@@ -1448,7 +1618,7 @@ with tab3:
 
             # Wenn Bearbeitungsrecht: Editierbare Tabelle
             if aktueller_benutzer_hat_recht("bearbeiten"):
-                st.info("Doppelklicken Sie auf eine Zelle zum Bearbeiten.")
+                st.info(_("historie.bearbeiten_info"))
 
                 # Editierbare Kopie erstellen (mit km_differenz und verbrauch zur Anzeige)
                 edit_cols = ["kennzeichen", "datum", "zeit", "km_stand", "km_differenz", "menge_liter", "verbrauch", "betrag_eur", "tankstelle", "quelldatei", "_auff_id", "_ist_auffaellig"]
@@ -1555,10 +1725,10 @@ with tab3:
 
                     if aenderungen > 0:
                         speichere_historie(historie)
-                        st.success(f"{aenderungen} Änderung(en) gespeichert!")
+                        st.success(_("historie.aenderungen_gespeichert", count=aenderungen))
                         st.rerun()
                     else:
-                        st.info("Keine Änderungen erkannt.")
+                        st.info(_("historie.keine_aenderungen"))
 
             else:
                 # Kein Bearbeitungsrecht: Nur Anzeige
@@ -1627,18 +1797,18 @@ with tab3:
                 else:
                     st.dataframe(df_display_show[display_cols], use_container_width=True)
         else:
-            st.info("Keine Daten für die ausgewählten Filter gefunden.")
+            st.info(_("historie.keine_daten"))
 
         # Historie löschen
         st.markdown("---")
-        st.markdown("### Daten verwalten")
+        st.markdown(f"### {_('historie.daten_verwalten')}")
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("Historie als CSV exportieren"):
+            if st.button(_("historie.csv_export")):
                 csv = df_alle.to_csv(index=False)
                 st.download_button(
-                    "CSV herunterladen",
+                    _("historie.csv_download"),
                     csv,
                     "dkv_historie.csv",
                     "text/csv"
@@ -1646,16 +1816,16 @@ with tab3:
 
         with col2:
             if aktueller_benutzer_hat_recht("historie_loeschen"):
-                if st.button("Gesamte Historie löschen", type="secondary"):
+                if st.button(_("historie.historie_loeschen"), type="secondary"):
                     st.session_state["confirm_delete"] = True
 
                 if st.session_state.get("confirm_delete"):
-                    st.warning("Wirklich alle Daten löschen?")
-                    if st.button("Ja, alles löschen!", type="primary"):
+                    st.warning(_("historie.bestaetigen"))
+                    if st.button(_("historie.ja_loeschen"), type="primary"):
                         historie = {"tankvorgaenge": [], "importe": []}
                         speichere_historie(historie)
                         st.session_state["confirm_delete"] = False
-                        st.success("Historie gelöscht!")
+                        st.success(_("historie.geloescht"))
                         st.rerun()
 
         # Durchgeführte Importe (am Ende, einklappbar bei > 5 Dateien)
@@ -1663,19 +1833,22 @@ with tab3:
         if historie["importe"]:
             anzahl_importe = len(historie["importe"])
             if anzahl_importe > 5:
-                with st.expander(f"Durchgeführte Importe ({anzahl_importe} Dateien)"):
+                with st.expander(f"{_('historie.importe')} ({_('historie.importe_dateien', count=anzahl_importe)})"):
                     st.dataframe(pd.DataFrame(historie["importe"]), use_container_width=True)
             else:
-                st.markdown("### Durchgeführte Importe")
+                st.markdown(f"### {_('historie.importe')}")
                 st.dataframe(pd.DataFrame(historie["importe"]), use_container_width=True)
     else:
-        st.info("Noch keine Daten gespeichert.")
+        st.info(_("historie.keine_daten_gespeichert"))
 
 # --- TAB 4: Auffälligkeiten ---
 with tab4:
-    st.subheader("Auffälligkeiten & Korrekturen")
+    st.subheader(_("auffaelligkeiten.titel"))
 
-    if alle_auffaelligkeiten:
+    # Daten erst nach Login anzeigen
+    if not st.session_state["logged_in"]:
+        st.info(_("sidebar.anmelden_info"))
+    elif alle_auffaelligkeiten:
         # Zusammenfassung - unterscheide quittierte und nicht-quittierte
         nicht_quittiert = [a for a in alle_auffaelligkeiten if not a.get("quittiert", False)]
         quittiert_liste = [a for a in alle_auffaelligkeiten if a.get("quittiert", False)]
@@ -1695,7 +1868,7 @@ with tab4:
         st.markdown("---")
 
         # Auffälligkeiten als Tabelle
-        st.markdown("### Übersicht aller Auffälligkeiten")
+        st.markdown(f"### {_('auffaelligkeiten.uebersicht')}")
 
         auff_df = pd.DataFrame(alle_auffaelligkeiten)
 
@@ -1705,21 +1878,21 @@ with tab4:
             # Filter nach Fahrzeug
             alle_fahrzeuge_auff = sorted(auff_df["fahrzeug"].unique().tolist())
             fahrzeug_filter_auff = st.selectbox(
-                "Nach Fahrzeug filtern",
-                ["Alle"] + alle_fahrzeuge_auff,
+                _("auffaelligkeiten.filter_fahrzeug"),
+                [_("historie.alle")] + alle_fahrzeuge_auff,
                 key="auff_fahrzeug_filter"
             )
         with col_filter2:
             # Filter für quittierte Einträge
             quittierte_ausblenden = st.checkbox(
-                "Quittierte ausblenden",
+                _("auffaelligkeiten.quittierte_ausblenden"),
                 value=True,
                 key="quittierte_ausblenden"
             )
 
         # Filter anwenden
         auff_df_filtered = auff_df.copy()
-        if fahrzeug_filter_auff != "Alle":
+        if fahrzeug_filter_auff != _("historie.alle"):
             auff_df_filtered = auff_df_filtered[auff_df_filtered["fahrzeug"] == fahrzeug_filter_auff]
         if quittierte_ausblenden:
             auff_df_filtered = auff_df_filtered[~auff_df_filtered["quittiert"].fillna(False)]
@@ -1746,12 +1919,12 @@ with tab4:
             )
 
             auff_display = auff_df_filtered[["fahrzeug", "datum", "zeit", "typ", "details", "status"]].rename(columns={
-                "fahrzeug": "Fahrzeug",
-                "datum": "Datum",
-                "zeit": "Zeit",
-                "typ": "Problem",
-                "details": "Details",
-                "status": "Quittiert"
+                "fahrzeug": _("spalten.fahrzeug"),
+                "datum": _("spalten.datum"),
+                "zeit": _("spalten.zeit"),
+                "typ": _("spalten.problem"),
+                "details": _("spalten.details"),
+                "status": _("spalten.quittiert")
             })
 
             st.dataframe(
@@ -1762,25 +1935,25 @@ with tab4:
             )
         else:
             if quittierte_ausblenden and len(quittiert_liste) > 0:
-                st.success(f"Alle Auffälligkeiten wurden quittiert ({len(quittiert_liste)} quittiert).")
+                st.success(_("auffaelligkeiten.alle_quittiert", count=len(quittiert_liste)))
             else:
-                st.info("Keine Auffälligkeiten vorhanden.")
+                st.info(_("auffaelligkeiten.keine_vorhanden"))
 
         # --- Quittierungs-Bereich (nur mit Bearbeitungsrecht) ---
         st.markdown("---")
-        st.markdown("### Auffälligkeiten quittieren")
+        st.markdown(f"### {_('auffaelligkeiten.quittieren_titel')}")
 
         if aktueller_benutzer_hat_recht("bearbeiten"):
             # Nur nicht-quittierte Auffälligkeiten anzeigen
             nicht_quittierte_df = auff_df[~auff_df["quittiert"].fillna(False)].copy()
 
-            if fahrzeug_filter_auff != "Alle":
+            if fahrzeug_filter_auff != _("historie.alle"):
                 nicht_quittierte_df = nicht_quittierte_df[nicht_quittierte_df["fahrzeug"] == fahrzeug_filter_auff]
 
             nicht_quittierte_df = nicht_quittierte_df.sort_values(["datum", "zeit"]).reset_index(drop=True)
 
             if len(nicht_quittierte_df) > 0:
-                st.info("Markieren Sie Auffälligkeiten als geprüft, wenn sie erklärt sind (z.B. Mietwagen getankt).")
+                st.info(_("auffaelligkeiten.quittieren_info"))
 
                 # Auswahl der zu quittierenden Auffälligkeit
                 quitt_optionen = []
@@ -1788,7 +1961,7 @@ with tab4:
                     quitt_optionen.append(f"{row['fahrzeug']} | {row['datum']} {row['zeit']} | {row['typ']}")
 
                 quitt_auswahl = st.selectbox(
-                    "Auffälligkeit auswählen",
+                    _("auffaelligkeiten.auswahl"),
                     quitt_optionen,
                     key="quitt_auswahl"
                 )
@@ -1814,11 +1987,11 @@ with tab4:
                             help="Bitte geben Sie eine Erklärung für die Auffälligkeit an."
                         )
 
-                        quitt_submit = st.form_submit_button("Auffälligkeit quittieren", type="primary")
+                        quitt_submit = st.form_submit_button(_("auffaelligkeiten.quittieren_button"), type="primary")
 
                         if quitt_submit:
                             if not quitt_kommentar or len(quitt_kommentar.strip()) < 3:
-                                st.error("Bitte geben Sie eine Begründung ein (mindestens 3 Zeichen).")
+                                st.error(_("auffaelligkeiten.begruendung_fehler"))
                             else:
                                 # Tankvorgang in Historie finden und quittieren
                                 auff_id = ausgewaehlte_auff["id"]
@@ -1835,20 +2008,20 @@ with tab4:
                                         break
 
                                 speichere_historie(historie)
-                                st.success(f"Auffälligkeit quittiert: {ausgewaehlte_auff['typ']}")
+                                st.success(_("auffaelligkeiten.quittiert_erfolg", typ=ausgewaehlte_auff['typ']))
                                 st.session_state["aktiver_tab"] = 3  # Tab 4: Auffälligkeiten (0-basiert)
                                 st.rerun()
             else:
-                st.success("Keine offenen Auffälligkeiten zum Quittieren vorhanden.")
+                st.success(_("auffaelligkeiten.keine_offenen"))
         else:
-            st.warning("Sie benötigen Bearbeitungsrechte, um Auffälligkeiten quittieren zu können.")
+            st.warning(_("auffaelligkeiten.keine_berechtigung_quittieren"))
 
         # --- Korrektur-Bereich (nur mit Bearbeitungsrecht) ---
         st.markdown("---")
-        st.markdown("### Auffällige Einträge korrigieren")
+        st.markdown(f"### {_('auffaelligkeiten.korrigieren_titel')}")
 
         if aktueller_benutzer_hat_recht("bearbeiten"):
-            st.info("Doppelklicken Sie auf eine Zelle zum Bearbeiten. Danach 'Änderungen speichern' klicken.")
+            st.info(_("auffaelligkeiten.korrigieren_info"))
 
             # Auffällige Einträge aus Historie laden
             if historie["tankvorgaenge"]:
@@ -1867,19 +2040,19 @@ with tab4:
                     with col_filter1:
                         korr_fahrzeuge = sorted(df_auff["kennzeichen"].unique().tolist())
                         korr_fahrzeug_filter = st.selectbox(
-                            "Fahrzeug auswählen",
-                            ["Alle"] + korr_fahrzeuge,
+                            _("auffaelligkeiten.fahrzeug_auswaehlen"),
+                            [_("historie.alle")] + korr_fahrzeuge,
                             key="korr_fahrzeug_filter"
                         )
                     with col_filter2:
                         korr_text_filter = st.text_input(
-                            "Suche (Tankstelle, Datum...)",
+                            _("auffaelligkeiten.filter_suche"),
                             key="korr_text_filter",
-                            placeholder="Suchbegriff eingeben..."
+                            placeholder=_("auffaelligkeiten.suchbegriff_eingeben")
                         )
 
                     # Filter anwenden
-                    if korr_fahrzeug_filter != "Alle":
+                    if korr_fahrzeug_filter != _("historie.alle"):
                         df_auff = df_auff[df_auff["kennzeichen"] == korr_fahrzeug_filter]
 
                     if korr_text_filter:
@@ -1965,18 +2138,18 @@ with tab4:
 
                         if aenderungen > 0:
                             speichere_historie(historie)
-                            st.success(f"{aenderungen} Änderung(en) gespeichert!")
+                            st.success(_("historie.aenderungen_gespeichert", count=aenderungen))
                             st.rerun()
                         else:
-                            st.info("Keine Änderungen erkannt.")
+                            st.info(_("historie.keine_aenderungen"))
                 else:
-                    st.info("Keine auffälligen Einträge zum Bearbeiten vorhanden.")
+                    st.info(_("auffaelligkeiten.keine_auffaellig"))
         else:
-            st.warning("Sie benötigen Bearbeitungsrechte, um Daten korrigieren zu können.")
+            st.warning(_("auffaelligkeiten.keine_berechtigung_korrigieren"))
 
         # --- Benachrichtigungs-Bereich ---
         st.markdown("---")
-        st.markdown("### Besitzer benachrichtigen")
+        st.markdown(f"### {_('auffaelligkeiten.benachrichtigen_titel')}")
 
         if aktueller_benutzer_hat_recht("email_senden"):
             # Nur nicht-quittierte Auffälligkeiten für E-Mail-Benachrichtigungen
@@ -2019,33 +2192,33 @@ with tab4:
             smtp_ok = smtp_config.get("server") and smtp_config.get("absender_email")
 
             if not smtp_ok:
-                st.warning("SMTP-Server nicht vollständig konfiguriert. Bitte im Tab 'Einstellungen' konfigurieren.")
+                st.warning(_("auffaelligkeiten.smtp_nicht_konfiguriert"))
 
             if benachrichtigbare:
-                st.markdown("**Fahrzeuge mit hinterlegter E-Mail-Adresse:**")
+                st.markdown(f"**{_('auffaelligkeiten.mit_email')}**")
 
                 # Tabelle der benachrichtigbaren Fahrzeuge
                 df_benachrichtig = pd.DataFrame(benachrichtigbare)
                 df_benachrichtig_display = df_benachrichtig.rename(columns={
-                    "kennzeichen": "Kennzeichen",
-                    "besitzer_name": "Besitzer",
-                    "besitzer_email": "E-Mail",
-                    "fehler": "Fehler",
-                    "warnungen": "Warnungen",
-                    "gesamt": "Gesamt"
+                    "kennzeichen": _("spalten.kennzeichen"),
+                    "besitzer_name": _("spalten.besitzer"),
+                    "besitzer_email": _("spalten.email"),
+                    "fehler": _("allgemein.fehler"),
+                    "warnungen": _("allgemein.warnung"),
+                    "gesamt": _("allgemein.gesamt")
                 })
                 st.dataframe(df_benachrichtig_display, use_container_width=True)
 
                 # Multiselect für Auswahl
                 auswahl_optionen = [f"{b['kennzeichen']} - {b['besitzer_name']}" for b in benachrichtigbare]
                 auswahl = st.multiselect(
-                    "Fahrzeuge für Benachrichtigung auswählen:",
+                    _("auffaelligkeiten.auswahl_benachrichtigen"),
                     auswahl_optionen,
                     default=auswahl_optionen
                 )
 
                 if auswahl and smtp_ok:
-                    if st.button("E-Mail-Benachrichtigungen senden", type="primary"):
+                    if st.button(_("auffaelligkeiten.email_senden"), type="primary"):
                         erfolge = 0
                         fehler_liste = []
 
@@ -2080,30 +2253,30 @@ with tab4:
                                     break
 
                         if erfolge > 0:
-                            st.success(f"{erfolge} E-Mail(s) erfolgreich gesendet!")
+                            st.success(_("auffaelligkeiten.email_erfolg", count=erfolge))
                         if fehler_liste:
-                            st.error("Fehler beim Senden:\n" + "\n".join(fehler_liste))
+                            st.error(_("auffaelligkeiten.email_fehler") + "\n" + "\n".join(fehler_liste))
                 elif not smtp_ok:
-                    st.info("Bitte zuerst SMTP-Server im Tab 'Einstellungen' konfigurieren.")
+                    st.info(_("auffaelligkeiten.smtp_konfigurieren"))
 
             if nicht_benachrichtigbare:
-                st.markdown("**Fahrzeuge ohne E-Mail-Adresse:**")
+                st.markdown(f"**{_('auffaelligkeiten.ohne_email')}**")
                 df_nicht = pd.DataFrame(nicht_benachrichtigbare)
                 df_nicht_display = df_nicht.rename(columns={
-                    "kennzeichen": "Kennzeichen",
-                    "fehler": "Fehler",
-                    "warnungen": "Warnungen",
-                    "gesamt": "Gesamt"
+                    "kennzeichen": _("spalten.kennzeichen"),
+                    "fehler": _("allgemein.fehler"),
+                    "warnungen": _("allgemein.warnung"),
+                    "gesamt": _("allgemein.gesamt")
                 })
                 st.dataframe(df_nicht_display, use_container_width=True)
-                st.info("Für diese Fahrzeuge kann keine E-Mail gesendet werden. Bitte im Tab 'Einstellungen' Besitzer-Daten hinterlegen.")
+                st.info(_("auffaelligkeiten.ohne_email_info"))
 
             if not benachrichtigbare and not nicht_benachrichtigbare:
-                st.info("Keine Fahrzeuge mit Auffälligkeiten gefunden.")
+                st.info(_("auffaelligkeiten.keine_mit_auff"))
         else:
-            st.warning("Sie benötigen entsprechende Rechte, um Benachrichtigungen zu versenden.")
+            st.warning(_("auffaelligkeiten.keine_berechtigung_email"))
     else:
-        st.success("Keine Auffälligkeiten gefunden! Alle Daten sind in Ordnung.")
+        st.success(_("auffaelligkeiten.keine_auffaelligkeiten"))
 
 # --- TAB 5: Einstellungen ---
 with tab5:
@@ -2114,16 +2287,16 @@ with tab5:
     # Admin-Tabs nur wenn eingeloggt und berechtigt
     if ist_eingeloggt:
         if aktueller_benutzer_hat_recht("fahrzeuge_verwalten"):
-            sub_tab_namen.append("🚗 Fahrzeuge")
+            sub_tab_namen.append(f"🚗 {_('einstellungen.fahrzeuge')}")
         if aktueller_benutzer_hat_recht("smtp_config") or aktueller_benutzer_hat_recht("vorlage_config"):
-            sub_tab_namen.append("📧 E-Mail")
+            sub_tab_namen.append(f"📧 {_('einstellungen.email')}")
         if aktueller_benutzer_hat_recht("benutzer_verwalten"):
-            sub_tab_namen.append("👥 Benutzer")
+            sub_tab_namen.append(f"👥 {_('einstellungen.benutzer')}")
         if aktueller_benutzer_hat_recht("datensicherung"):
-            sub_tab_namen.append("💾 Datensicherung")
+            sub_tab_namen.append(f"💾 {_('einstellungen.datensicherung')}")
 
     # "Über" ist immer sichtbar (auch ohne Login)
-    sub_tab_namen.append("ℹ️ Über")
+    sub_tab_namen.append(f"ℹ️ {_('einstellungen.ueber')}")
 
     sub_tabs = st.tabs(sub_tab_namen)
     tab_index = 0
@@ -2314,87 +2487,114 @@ with tab5:
     # === BENUTZER ===
     if ist_eingeloggt and aktueller_benutzer_hat_recht("benutzer_verwalten"):
         with sub_tabs[tab_index]:
-            benutzer_sub = st.tabs(["Übersicht", "Bearbeiten", "Neu anlegen"])
             benutzer_daten = lade_benutzer()
             benutzer_liste = benutzer_daten.get("benutzer", [])
-            with benutzer_sub[0]:
-                if benutzer_liste:
-                    benutzer_df = pd.DataFrame([{
-                        "Benutzer": b["benutzername"],
-                        "Name": b.get("name", ""),
-                        "Rolle": ROLLEN.get(b.get("rolle", "viewer"), {}).get("name", ""),
-                        "Aktiv": "Ja" if b.get("aktiv", True) else "Nein"
-                    } for b in benutzer_liste])
-                    st.dataframe(benutzer_df, use_container_width=True)
-                with st.expander("Rollen-Übersicht"):
-                    st.markdown("""
-| Rolle | Rechte |
-|-------|--------|
-| Administrator | Vollzugriff |
-| Manager | Import, Bearbeiten, E-Mails, Fahrzeuge |
-| Betrachter | Nur Lesen |
-""")
-            with benutzer_sub[1]:
-                if benutzer_liste:
-                    benutzer_auswahl = st.selectbox("Benutzer", [b["benutzername"] for b in benutzer_liste], key="benutzer_auswahl")
-                    if benutzer_auswahl:
-                        ausgewaehlter = finde_benutzer(benutzer_auswahl)
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            edit_name = st.text_input("Name", value=ausgewaehlter.get("name", ""), key="edit_name")
-                            edit_email = st.text_input("E-Mail", value=ausgewaehlter.get("email", ""), key="edit_email")
-                            edit_rolle = st.selectbox("Rolle", list(ROLLEN.keys()), index=list(ROLLEN.keys()).index(ausgewaehlter.get("rolle", "viewer")), format_func=lambda x: ROLLEN[x]["name"], key="edit_rolle")
-                        with col2:
-                            edit_aktiv = st.checkbox("Aktiv", value=ausgewaehlter.get("aktiv", True), key="edit_aktiv")
-                            edit_pw_reset = st.checkbox("Passwort-Änderung erzwingen", value=ausgewaehlter.get("muss_passwort_aendern", False), key="edit_pw_reset")
-                            neues_pw = st.text_input("Neues Passwort (leer = unverändert)", type="password", key="edit_neues_pw")
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            if st.button("Speichern", type="primary", key="save_benutzer"):
-                                updates = {"name": edit_name, "email": edit_email, "rolle": edit_rolle, "aktiv": edit_aktiv, "muss_passwort_aendern": edit_pw_reset}
-                                if neues_pw:
-                                    if len(neues_pw) < 6:
-                                        st.error("Mind. 6 Zeichen")
-                                    else:
-                                        updates["passwort_hash"] = hash_passwort(neues_pw)
-                                        aktualisiere_benutzer(benutzer_auswahl, updates)
-                                        st.success("Gespeichert!")
-                                        st.rerun()
-                                else:
-                                    aktualisiere_benutzer(benutzer_auswahl, updates)
-                                    st.success("Gespeichert!")
-                                    st.rerun()
-                        with col2:
-                            if benutzer_auswahl.lower() != st.session_state["username"].lower():
-                                if st.button("Löschen", type="secondary", key="delete_benutzer"):
-                                    erfolg, msg = loesche_benutzer(benutzer_auswahl)
-                                    if erfolg:
-                                        st.success(msg)
-                                        st.rerun()
-                                    else:
-                                        st.error(msg)
-            with benutzer_sub[2]:
+
+            # Erfolgsmeldung nach Rerun anzeigen
+            if "benutzer_erstellt_meldung" in st.session_state:
+                st.success(_("einstellungen.benutzer_erstellt", name=st.session_state["benutzer_erstellt_meldung"]))
+                del st.session_state["benutzer_erstellt_meldung"]
+
+            # Neuen Benutzer anlegen (oben)
+            with st.expander(f"➕ {_('einstellungen.neu_anlegen')}", expanded=False):
                 with st.form("neuer_benutzer_form"):
                     col1, col2 = st.columns(2)
                     with col1:
-                        neu_name = st.text_input("Benutzername", key="neu_benutzername")
-                        neu_anzeigename = st.text_input("Name", key="neu_name")
-                        neu_email = st.text_input("E-Mail", key="neu_email")
+                        neu_name = st.text_input(_("einstellungen.benutzername"), key="neu_benutzername")
+                        neu_anzeigename = st.text_input(_("einstellungen.name"), key="neu_name")
+                        neu_email = st.text_input(_("einstellungen.email"), key="neu_email")
                     with col2:
-                        neu_pw = st.text_input("Passwort", type="password", key="neu_passwort")
-                        neu_rolle = st.selectbox("Rolle", list(ROLLEN.keys()), format_func=lambda x: ROLLEN[x]["name"], key="neu_rolle")
-                    if st.form_submit_button("Erstellen", type="primary"):
+                        neu_pw = st.text_input(_("einstellungen.passwort"), type="password", key="neu_passwort")
+                        neu_rolle = st.selectbox(_("einstellungen.rolle"), list(ROLLEN.keys()), format_func=lambda x: ROLLEN[x]["name"], key="neu_rolle")
+                    if st.form_submit_button(_("einstellungen.erstellen"), type="primary"):
                         if not neu_name:
-                            st.error("Benutzername erforderlich")
+                            st.error(_("einstellungen.benutzername_erforderlich"))
                         elif len(neu_pw) < 6:
-                            st.error("Passwort mind. 6 Zeichen")
+                            st.error(_("einstellungen.passwort_min_zeichen"))
                         else:
                             erfolg, msg = erstelle_benutzer(neu_name, neu_pw, neu_rolle, neu_anzeigename, neu_email)
                             if erfolg:
-                                st.success(f"'{neu_name}' erstellt!")
+                                st.session_state["benutzer_erstellt_meldung"] = neu_name
                                 st.rerun()
                             else:
                                 st.error(msg)
+
+            st.markdown("---")
+
+            # Benutzerliste mit Bearbeiten/Löschen-Buttons
+            if benutzer_liste:
+                for idx, benutzer in enumerate(benutzer_liste):
+                    col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 1, 1])
+                    with col1:
+                        st.write(f"**{benutzer['benutzername']}**")
+                    with col2:
+                        st.write(benutzer.get("name", "-"))
+                    with col3:
+                        rolle_name = ROLLEN.get(benutzer.get("rolle", "viewer"), {}).get("name", "")
+                        aktiv_status = "✓" if benutzer.get("aktiv", True) else "✗"
+                        st.write(f"{rolle_name} ({aktiv_status})")
+                    with col4:
+                        if st.button("✏️", key=f"edit_{idx}", help=_("einstellungen.bearbeiten")):
+                            st.session_state["benutzer_bearbeiten"] = benutzer["benutzername"]
+                    with col5:
+                        # Nicht den eigenen Account oder letzten Admin löschen
+                        kann_loeschen = benutzer["benutzername"].lower() != st.session_state.get("username", "").lower()
+                        if kann_loeschen:
+                            if st.button("🗑️", key=f"del_{idx}", help=_("einstellungen.loeschen")):
+                                erfolg, msg = loesche_benutzer(benutzer["benutzername"])
+                                if erfolg:
+                                    st.rerun()
+                                else:
+                                    st.error(msg)
+
+                # Bearbeiten-Dialog
+                if "benutzer_bearbeiten" in st.session_state:
+                    benutzer_auswahl = st.session_state["benutzer_bearbeiten"]
+                    ausgewaehlter = finde_benutzer(benutzer_auswahl)
+                    if ausgewaehlter:
+                        st.markdown("---")
+                        st.markdown(f"#### {_('einstellungen.bearbeiten')}: {benutzer_auswahl}")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            edit_name = st.text_input(_("einstellungen.name"), value=ausgewaehlter.get("name", ""), key="edit_name")
+                            edit_email = st.text_input(_("einstellungen.email"), value=ausgewaehlter.get("email", ""), key="edit_email")
+                            edit_rolle = st.selectbox(_("einstellungen.rolle"), list(ROLLEN.keys()), index=list(ROLLEN.keys()).index(ausgewaehlter.get("rolle", "viewer")), format_func=lambda x: ROLLEN[x]["name"], key="edit_rolle")
+                        with col2:
+                            edit_aktiv = st.checkbox(_("einstellungen.aktiv"), value=ausgewaehlter.get("aktiv", True), key="edit_aktiv")
+                            edit_pw_reset = st.checkbox(_("einstellungen.pw_reset"), value=ausgewaehlter.get("muss_passwort_aendern", False), key="edit_pw_reset")
+                            neues_pw = st.text_input(_("einstellungen.neues_pw"), type="password", key="edit_neues_pw")
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            if st.button(_("allgemein.speichern"), type="primary", key="save_benutzer"):
+                                updates = {"name": edit_name, "email": edit_email, "rolle": edit_rolle, "aktiv": edit_aktiv, "muss_passwort_aendern": edit_pw_reset}
+                                if neues_pw:
+                                    if len(neues_pw) < 6:
+                                        st.error(_("einstellungen.passwort_min_zeichen"))
+                                    else:
+                                        updates["passwort_hash"] = hash_passwort(neues_pw)
+                                        aktualisiere_benutzer(benutzer_auswahl, updates)
+                                        st.success(_("einstellungen.benutzer_gespeichert"))
+                                        del st.session_state["benutzer_bearbeiten"]
+                                        st.rerun()
+                                else:
+                                    aktualisiere_benutzer(benutzer_auswahl, updates)
+                                    st.success(_("einstellungen.benutzer_gespeichert"))
+                                    del st.session_state["benutzer_bearbeiten"]
+                                    st.rerun()
+                        with col2:
+                            if st.button(_("allgemein.abbrechen"), key="cancel_edit"):
+                                del st.session_state["benutzer_bearbeiten"]
+                                st.rerun()
+
+            # Rollen-Übersicht
+            with st.expander(_("einstellungen.rollen_uebersicht")):
+                st.markdown(f"""
+| {_("einstellungen.rolle")} | {_("spalten.details")} |
+|-------|--------|
+| Administrator | {_("rollen.admin_rechte")} |
+| Manager | {_("rollen.manager_rechte")} |
+| Betrachter | {_("rollen.viewer_rechte")} |
+""")
         tab_index += 1
 
     # === DATENSICHERUNG ===
@@ -2525,332 +2725,90 @@ Datenschutzbeauftragten Ihrer Organisation.
 
 # --- TAB 6: Hilfe ---
 with tab6:
-    st.markdown("## 📖 Benutzerhandbuch")
+    st.markdown(f"## 📖 {_('hilfe.titel')}")
     st.markdown("---")
 
     # Inhaltsverzeichnis
-    st.markdown("""
-### Inhaltsverzeichnis
-1. [Überblick](#überblick)
-2. [Erste Schritte](#erste-schritte)
-3. [Import & Analyse](#import-analyse)
-4. [Verbrauchsentwicklung](#verbrauchsentwicklung)
-5. [Historie](#historie)
-6. [Auffälligkeiten](#auffälligkeiten)
-7. [Einstellungen](#einstellungen)
-8. [Häufige Fragen](#häufige-fragen)
+    st.markdown(f"""
+### {_('hilfe.inhaltsverzeichnis')}
+1. [{_('hilfe.ueberblick')}](#overview)
+2. [{_('hilfe.erste_schritte')}](#getting-started)
+3. [{_('hilfe.import_analyse')}](#import-analysis)
+4. [{_('hilfe.manueller_tankvorgang')}](#manual-entry)
+5. [{_('hilfe.verbrauchsentwicklung')}](#consumption)
+6. [{_('hilfe.historie')}](#history)
+7. [{_('hilfe.auffaelligkeiten')}](#anomalies)
+8. [{_('hilfe.einstellungen')}](#settings)
+9. [{_('hilfe.faq')}](#faq)
 """)
 
     st.markdown("---")
 
     # Überblick
-    st.markdown("""
-### Überblick
-
-Der **DKV Abrechnungs-Checker** ist eine Anwendung zur Analyse von DKV-Tankkartenabrechnungen.
-Die Software erkennt automatisch Auffälligkeiten im Kraftstoffverbrauch und hilft bei der
-Kontrolle der Tankkartennutzung.
-
-**Hauptfunktionen:**
-- 📤 Import von DKV-Abrechnungen (CSV und PDF)
-- 📊 Visualisierung der Verbrauchsentwicklung
-- 📚 Vollständige Historie aller Tankvorgänge
-- ⚠️ Automatische Erkennung von Auffälligkeiten
-- 📧 E-Mail-Benachrichtigung an Fahrzeughalter
-- 👥 Mehrbenutzersystem mit Rollen
-""")
+    st.markdown(f"### {_('hilfe.ueberblick')}")
+    st.markdown(_("hilfe.ueberblick_text"))
 
     st.markdown("---")
 
     # Erste Schritte
-    st.markdown("""
-### Erste Schritte
-
-#### 1. Anmeldung
-- Klicken Sie in der **Seitenleiste** auf "Anmelden"
-- Standard-Zugangsdaten: `admin` / `admin`
-- Beim ersten Login werden Sie aufgefordert, das Passwort zu ändern
-
-#### 2. Benutzerrollen
-| Rolle | Beschreibung |
-|-------|--------------|
-| **Administrator** | Vollzugriff auf alle Funktionen inkl. Benutzerverwaltung |
-| **Manager** | Daten verwalten, E-Mails senden, Fahrzeuge verwalten |
-| **Betrachter** | Nur Lesezugriff und Datenexport |
-
-#### 3. Erste Daten importieren
-1. Gehen Sie zum Tab "📤 Import & Analyse"
-2. Laden Sie eine DKV-Abrechnungsdatei hoch (CSV oder PDF)
-3. Die Daten werden automatisch analysiert und gespeichert
-""")
+    st.markdown(f"### {_('hilfe.erste_schritte')}")
+    st.markdown(_("hilfe.erste_schritte_text"))
 
     st.markdown("---")
 
     # Import & Analyse
-    st.markdown("""
-### Import & Analyse
+    st.markdown(f"### {_('hilfe.import_analyse')}")
+    st.markdown(_("hilfe.import_text"))
 
-#### Unterstützte Dateiformate
+    st.markdown("---")
 
-**CSV-Dateien (empfohlen):**
-- Direkt aus dem DKV-Portal exportiert
-- Semikolon als Trennzeichen
-- Deutsche Zahlenformate (1.234,56)
-- Höchste Genauigkeit bei km-Ständen
-
-**PDF-Dateien:**
-- DKV E-Rechnungen
-- Werden automatisch geparst
-- Hinweis: km-Stände können ungenauer sein
-
-#### Import-Ablauf
-1. Dateien per Drag & Drop oder Dateiauswahl hochladen
-2. Mehrere Dateien gleichzeitig möglich
-3. Automatische Duplikatsprüfung:
-   - Bereits importierte Dateien werden erkannt
-   - Doppelte Tankvorgänge werden übersprungen
-4. Neue Daten werden sofort in der Historie gespeichert
-
-#### Was wird importiert?
-- Kennzeichen des Fahrzeugs
-- Datum und Uhrzeit
-- Kilometerstand
-- Getankte Menge (Liter)
-- Betrag (EUR)
-- Tankstelle und Warenart
-""")
+    # Manueller Tankvorgang
+    st.markdown(f"### {_('hilfe.manueller_tankvorgang')}")
+    st.markdown(_("hilfe.manueller_tankvorgang_text"))
 
     st.markdown("---")
 
     # Verbrauchsentwicklung
-    st.markdown("""
-### Verbrauchsentwicklung
-
-Dieser Tab zeigt die **grafische Auswertung** des Kraftstoffverbrauchs.
-
-#### Filteroptionen
-- **Zeitraum:** Von-Bis-Datumsauswahl
-- **Fahrzeug:** Einzelnes Fahrzeug oder alle
-
-#### Diagramme
-- **Verbrauch über Zeit:** Zeigt den Verbrauch (L/100km) pro Tankvorgang
-- **Monatliche Aggregation:** Durchschnittsverbrauch pro Monat
-- Interaktive Altair-Charts mit Zoom und Tooltips
-
-#### Interpretation
-- Konstanter Verbrauch = normaler Betrieb
-- Plötzliche Spitzen = mögliche Auffälligkeit
-- Saisonale Schwankungen sind normal (Winter/Sommer)
-""")
+    st.markdown(f"### {_('hilfe.verbrauchsentwicklung')}")
+    st.markdown(_("hilfe.verbrauch_text"))
 
     st.markdown("---")
 
     # Historie
-    st.markdown("""
-### Historie
-
-Die **vollständige Übersicht** aller importierten Tankvorgänge.
-
-#### Filteroptionen
-- **Fahrzeug:** Nach Kennzeichen filtern
-- **Zeitraum:** Von-Bis-Datumsauswahl
-- **Quelldatei:** Nach Import-Datei filtern
-- **Textsuche:** Suche in Tankstelle, Datum, Quelldatei
-
-#### Tabellenspalten
-| Spalte | Beschreibung |
-|--------|--------------|
-| Datum / Zeit | Zeitpunkt der Tankung |
-| Kennzeichen | Fahrzeug-Kennzeichen |
-| km-Stand | Aktueller Kilometerstand |
-| km gefahren | Differenz zum vorherigen Tankvorgang |
-| Liter | Getankte Menge |
-| L/100km | Berechneter Verbrauch |
-| EUR | Rechnungsbetrag |
-| Tankstelle | Ort der Tankung |
-| Status | Auffälligkeiten (⚠️ offen, ✓ quittiert) |
-
-#### Status-Symbole
-- `⚠️ km?` = Fehlender Kilometerstand
-- `⚠️ km↓` = Kilometerstand gesunken
-- `⚠️ L↓` = Verbrauch zu niedrig
-- `⚠️ L↑` = Verbrauch zu hoch
-- `✓` = Quittiert (mit grünem Hintergrund)
-
-#### Daten bearbeiten
-Nach Anmeldung (je nach Rolle) können Sie:
-- Kilometerstände korrigieren
-- Litermengen anpassen
-- Beträge ändern
-- Änderungen werden automatisch gespeichert
-
-#### Daten exportieren
-- Klicken Sie auf "Als CSV exportieren"
-- Gefilterte Daten werden heruntergeladen
-""")
+    st.markdown(f"### {_('hilfe.historie')}")
+    st.markdown(_("hilfe.historie_text"))
 
     st.markdown("---")
 
     # Auffälligkeiten
-    st.markdown("""
-### Auffälligkeiten
-
-Hier werden **automatisch erkannte Probleme** angezeigt.
-
-#### Erkannte Auffälligkeiten
-
-| Typ | Beschreibung | Schwere |
-|-----|--------------|---------|
-| **Fehlender km-Stand** | Tankvorgang ohne Kilometerangabe | ⚠️ Warnung |
-| **km-Stand gesunken** | Aktueller Stand niedriger als vorheriger | 🔴 Fehler |
-| **Verbrauch zu niedrig** | Unter Minimalwert (Standard: 3 L/100km) | ⚠️ Warnung |
-| **Verbrauch zu hoch** | Über Maximalwert (Standard: 25 L/100km) | 🔴 Fehler |
-
-#### Fahrzeugspezifische Grenzwerte
-In den Einstellungen können pro Fahrzeug individuelle Verbrauchsgrenzen definiert werden
-(z.B. für Transporter höhere Werte).
-
-#### Auffälligkeiten quittieren
-1. Wählen Sie eine Auffälligkeit aus
-2. Geben Sie einen **Kommentar** ein (Pflichtfeld)
-   - z.B. "Mietwagen getankt", "Werkstattfahrt", "km-Stand nachträglich korrigiert"
-3. Klicken Sie auf "Quittieren"
-4. Quittierte Auffälligkeiten werden ausgeblendet (Filter "Quittierte ausblenden")
-
-#### E-Mail-Benachrichtigung
-- Pro Fahrzeug kann ein Besitzer mit E-Mail hinterlegt werden
-- Klicken Sie auf "Benachrichtigung senden" um den Besitzer zu informieren
-- Es werden nur offene (nicht quittierte) Auffälligkeiten gemeldet
-""")
+    st.markdown(f"### {_('hilfe.auffaelligkeiten')}")
+    st.markdown(_("hilfe.auffaelligkeiten_text"))
 
     st.markdown("---")
 
     # Einstellungen
-    st.markdown("""
-### Einstellungen
-
-#### 🚗 Fahrzeuge
-Hier verwalten Sie die Fahrzeug-Stammdaten:
-- **Besitzer-Name:** Name des Fahrzeughalters
-- **E-Mail:** Für Benachrichtigungen
-- **Verbrauchsgrenzen:** Min/Max L/100km pro Fahrzeug
-- **Notizen:** Zusätzliche Informationen
-
-#### 📧 E-Mail
-**Server-Einstellungen:**
-- SMTP-Server und Port konfigurieren
-- Zugangsdaten eingeben
-- TLS-Verschlüsselung aktivieren
-- Verbindung testen
-
-**Gängige SMTP-Server:**
-| Anbieter | Server | Port |
-|----------|--------|------|
-| Gmail | smtp.gmail.com | 587 |
-| Microsoft 365 | smtp.office365.com | 587 |
-| Web.de | smtp.web.de | 587 |
-| GMX | mail.gmx.net | 587 |
-
-**E-Mail-Vorlage:**
-- Betreff und Text anpassen
-- Platzhalter verwenden: `{besitzer_name}`, `{kennzeichen}`, `{anzahl_gesamt}`, etc.
-- Vorschau der E-Mail anzeigen
-
-#### 👥 Benutzer (nur Admin)
-- Benutzer anlegen, bearbeiten, löschen
-- Rollen zuweisen
-- Passwörter zurücksetzen
-- Konten aktivieren/deaktivieren
-""")
+    st.markdown(f"### {_('hilfe.einstellungen')}")
+    st.markdown(_("hilfe.einstellungen_text"))
 
     st.markdown("---")
 
     # Häufige Fragen
-    st.markdown("""
-### Häufige Fragen
-
-**F: Warum wird der Verbrauch nicht berechnet?**
-> Der Verbrauch kann nur berechnet werden, wenn der aktuelle UND der vorherige Tankvorgang
-> einen gültigen Kilometerstand haben. Beim ersten Tankvorgang eines Fahrzeugs ist daher
-> noch kein Verbrauch verfügbar.
-
-**F: Warum werden manche Tankvorgänge nicht importiert?**
-> Die Duplikatsprüfung verhindert doppelte Einträge. Wenn Kennzeichen, Datum und Uhrzeit
-> bereits existieren, wird der Vorgang übersprungen.
-
-**F: Was bedeutet "km-Stand gesunken"?**
-> Der aktuelle Kilometerstand ist niedriger als beim vorherigen Tankvorgang.
-> Mögliche Ursachen:
-> - Falscher Eintrag an der Tankstelle
-> - Verschiedene Personen haben unterschiedliche Werte eingegeben
-> - Tachomanipulation (selten)
-
-**F: Welche Verbrauchswerte sind normal?**
-> - PKW Benzin: 6-10 L/100km
-> - PKW Diesel: 5-8 L/100km
-> - Transporter: 8-15 L/100km
-> - LKW: 15-35 L/100km
-
-**F: Wie kann ich eine Auffälligkeit ignorieren?**
-> Quittieren Sie die Auffälligkeit mit einem erklärenden Kommentar.
-> Sie wird dann standardmäßig ausgeblendet und nicht mehr per E-Mail gemeldet.
-
-**F: Werden AdBlue-Tankungen ausgewertet?**
-> Nein, der Verbrauch wird nur für Kraftstoffe berechnet (Diesel, Super, Benzin, Euro).
-> AdBlue-Tankvorgänge werden importiert, aber nicht in die Verbrauchsberechnung einbezogen.
-
-**F: Kann ich die Daten sichern?**
-> Ja, exportieren Sie regelmäßig die Historie als CSV-Datei.
-> Alternativ sichern Sie die JSON-Dateien im Programmverzeichnis:
-> - `historie.json` (Tankvorgänge)
-> - `fahrzeuge.json` (Fahrzeug-Stammdaten)
-> - `benutzer.json` (Benutzerkonten)
-""")
+    st.markdown(f"### {_('hilfe.faq')}")
+    st.markdown(_("hilfe.faq_text"))
 
     st.markdown("---")
 
     # Datenschutz
-    st.markdown("""
-### Datenschutz & DSGVO
-
-**Wichtiger Hinweis:** Der **Betreiber** dieser Software (Ihre Organisation/Firma) ist
-der Verantwortliche im Sinne der DSGVO – nicht der Software-Entwickler.
-
-**Gespeicherte Daten:**
-- Fahrzeug-Kennzeichen und Tankvorgänge
-- Namen und E-Mail-Adressen (Fahrzeugbesitzer, Benutzer)
-- Anmeldedaten (Passwörter werden gehasht gespeichert)
-
-**Speicherort:**
-- Alle Daten werden **ausschließlich lokal** gespeichert
-- Keine Übermittlung an externe Server oder Dritte
-- Datenformat: JSON-Dateien im Programmverzeichnis
-
-**Pflichten des Betreibers:**
-- Mitarbeiter/Fahrzeugnutzer über die Verarbeitung informieren
-- Verarbeitung im Verarbeitungsverzeichnis dokumentieren
-- Auskunfts- und Löschungsanfragen bearbeiten
-
-Ausführliche Datenschutzhinweise finden Sie unter **Einstellungen → Über → Datenschutzhinweise**.
-""")
+    st.markdown(f"### {_('hilfe.datenschutz')}")
+    st.markdown(_("hilfe.datenschutz_text"))
 
     st.markdown("---")
 
     # Kontakt
-    st.markdown("""
-### Kontakt & Unterstützung
-
-Bei Fragen oder Problemen wenden Sie sich an den Administrator Ihrer Organisation.
-
----
-
-**Software-Version:** 1.0
-**Entwicklung:** Christian Sauer
-
-Diese Software ist kostenlos. Wenn Sie die Weiterentwicklung unterstützen möchten:
-""")
+    st.markdown(f"### {_('hilfe.kontakt')}")
+    st.markdown(_("hilfe.kontakt_text"))
     st.link_button(
-        "☕ Mit PayPal unterstützen",
+        _("hilfe.support_button"),
         "https://www.paypal.com/paypalme/christiansauer87",
         type="secondary"
     )

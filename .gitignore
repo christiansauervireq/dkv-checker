@@ -19,5 +19,8 @@ email_vorlage.json
 # Claude Code
 .claude/
 
+# SSL-Zertifikate (nicht committen!)
+ssl/
+
 # OS
 .DS_Store

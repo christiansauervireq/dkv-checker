@@ -1,14 +1,35 @@
 version: "3.8"
 
 services:
+  # Nginx Reverse Proxy für HTTPS
+  nginx:
+    image: nginx:alpine
+    container_name: dkv-nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - dkv-checker
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # DKV-Checker Streamlit App (nur intern erreichbar)
   dkv-checker:
     image: dkv-checker:latest
     # Alternativ von Docker Hub:
     # image: DEIN_DOCKERHUB_NAME/dkv-checker:latest
     container_name: dkv-checker
     restart: unless-stopped
-    ports:
-      - "8501:8501"
+    # Port nur intern exponieren (nicht nach außen)
+    expose:
+      - "8501"
     volumes:
       # Persistente Daten (Historie, Fahrzeuge, Benutzer, SMTP-Config)
       - ./data:/data
