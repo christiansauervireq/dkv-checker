@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Anwendung kopieren
 COPY dkv_checker.py .
+COPY i18n.py .
 COPY handbuch.html .
 
 # Datenverzeichnis für persistente Daten
