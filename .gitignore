@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Sensible Daten (nicht ins Repo!)
+benutzer.json
+smtp_config.json
+historie.json
+fahrzeuge.json
+email_vorlage.json
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store

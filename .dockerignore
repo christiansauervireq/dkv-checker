@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Lokale Daten (werden über Volume gemountet)
+historie.json
+fahrzeuge.json
+smtp_config.json
+email_vorlage.json
+benutzer.json
+data/
+
+# macOS
+.DS_Store
+*.command
+
+# Dokumentation
+*.md
+CLAUDE.md

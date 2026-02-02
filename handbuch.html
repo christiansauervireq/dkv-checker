@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DKV Abrechnungs-Checker - Handbuch</title>
+    <style>
+        :root {
+            --primary: #1f77b4;
+            --secondary: #ff7f0e;
+            --success: #2ca02c;
+            --warning: #ffcc00;
+            --danger: #d62728;
+            --light: #f8f9fa;
+            --dark: #343a40;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: var(--dark);
+            background: var(--light);
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary), #2c3e50);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        nav {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        nav h3 {
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        nav a {
+            color: var(--primary);
+            text-decoration: none;
+            padding: 5px 15px;
+            border: 1px solid var(--primary);
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+
+        nav a:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        section {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+
+        h2 {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        h3 {
+            color: var(--dark);
+            margin: 20px 0 10px 0;
+        }
+
+        h4 {
+            color: var(--secondary);
+            margin: 15px 0 8px 0;
+        }
+
+        p {
+            margin-bottom: 15px;
+        }
+
+        ul, ol {
+            margin: 15px 0 15px 25px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            border-left: 4px solid var(--warning);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid var(--primary);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .danger {
+            background: #f8d7da;
+            border-left: 4px solid var(--danger);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid var(--success);
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background: var(--primary);
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .badge-red {
+            background: #ffcccc;
+            color: #721c24;
+        }
+
+        .badge-orange {
+            background: #ffcc99;
+            color: #856404;
+        }
+
+        .badge-green {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .screenshot {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 10px;
+            background: #f8f9fa;
+            text-align: center;
+            margin: 15px 0;
+            font-style: italic;
+            color: #6c757d;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 600px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            nav ul {
+                flex-direction: column;
+            }
+
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>DKV Abrechnungs-Checker</h1>
+        <p>Analyse und Verwaltung von DKV-Tankkartenabrechnungen</p>
+    </header>
+
+    <div class="container">
+        <nav>
+            <h3>Inhaltsverzeichnis</h3>
+            <ul>
+                <li><a href="#installation">Installation</a></li>
+                <li><a href="#start">Programmstart</a></li>
+                <li><a href="#login">Login & Rollen</a></li>
+                <li><a href="#import">Import & Analyse</a></li>
+                <li><a href="#verbrauch">Verbrauchsentwicklung</a></li>
+                <li><a href="#historie">Historie</a></li>
+                <li><a href="#auffaelligkeiten">Auffälligkeiten</a></li>
+                <li><a href="#einstellungen">Einstellungen</a></li>
+                <li><a href="#datenformat">Datenformate</a></li>
+                <li><a href="#fehlerbehebung">Fehlerbehebung</a></li>
+            </ul>
+        </nav>
+
+        <section id="installation">
+            <h2>Installation</h2>
+
+            <h3>Systemvoraussetzungen</h3>
+            <ul>
+                <li>Python 3.8 oder höher</li>
+                <li>macOS, Windows oder Linux</li>
+                <li>Webbrowser (Chrome, Firefox, Safari, Edge)</li>
+            </ul>
+
+            <h3>Manuelle Installation</h3>
+            <p>Falls die automatische Installation nicht funktioniert:</p>
+
+            <pre><code># Terminal öffnen und zum Projektordner navigieren
+cd /pfad/zum/dkv-checker
+
+# Virtuelle Umgebung erstellen
+python3 -m venv venv
+
+# Virtuelle Umgebung aktivieren
+source venv/bin/activate  # macOS/Linux
+# oder: venv\Scripts\activate  # Windows
+
+# Abhängigkeiten installieren
+pip install -r requirements.txt</code></pre>
+
+            <h3>Abhängigkeiten</h3>
+            <table>
+                <tr>
+                    <th>Paket</th>
+                    <th>Beschreibung</th>
+                </tr>
+                <tr>
+                    <td><code>streamlit</code></td>
+                    <td>Web-Framework für die Benutzeroberfläche</td>
+                </tr>
+                <tr>
+                    <td><code>pandas</code></td>
+                    <td>Datenverarbeitung und -analyse</td>
+                </tr>
+                <tr>
+                    <td><code>altair</code></td>
+                    <td>Interaktive Diagramme</td>
+                </tr>
+                <tr>
+                    <td><code>pdfplumber</code></td>
+                    <td>PDF-Datenextraktion</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="start">
+            <h2>Programmstart</h2>
+
+            <h3>Einfacher Start (empfohlen)</h3>
+            <p>Doppelklicken Sie auf die Datei <code>start.command</code> im Projektordner. Das Programm:</p>
+            <ol>
+                <li>Erstellt automatisch die virtuelle Umgebung (beim ersten Start)</li>
+                <li>Installiert alle Abhängigkeiten</li>
+                <li>Startet den Webserver</li>
+                <li>Öffnet den Browser mit der Anwendung</li>
+            </ol>
+
+            <div class="info">
+                <strong>Tipp:</strong> Die Anwendung ist unter <code>http://localhost:8501</code> erreichbar.
+            </div>
+
+            <h3>Manueller Start</h3>
+            <pre><code># Terminal öffnen
+cd /pfad/zum/dkv-checker
+source venv/bin/activate
+streamlit run dkv_checker.py</code></pre>
+
+            <h3>Programm beenden</h3>
+            <p>Drücken Sie <code>Ctrl+C</code> im Terminal oder schließen Sie das Terminal-Fenster.</p>
+        </section>
+
+        <section id="login">
+            <h2>Login & Rollen</h2>
+
+            <h3>Anmeldung</h3>
+            <p>Die Anmeldung erfolgt über die Seitenleiste (Sidebar) auf der linken Seite.</p>
+
+            <h4>Erster Login</h4>
+            <table>
+                <tr>
+                    <th>Feld</th>
+                    <th>Wert</th>
+                </tr>
+                <tr>
+                    <td>Benutzername</td>
+                    <td><code>admin</code></td>
+                </tr>
+                <tr>
+                    <td>Passwort</td>
+                    <td><code>admin</code></td>
+                </tr>
+            </table>
+
+            <div class="highlight">
+                <strong>Wichtig:</strong> Beim ersten Login werden Sie aufgefordert, das Passwort zu ändern. Wählen Sie ein sicheres Passwort!
+            </div>
+
+            <h3>Benutzerrollen</h3>
+            <p>Das System unterstützt drei Rollen mit unterschiedlichen Berechtigungen:</p>
+
+            <table>
+                <tr>
+                    <th>Rolle</th>
+                    <th>Beschreibung</th>
+                    <th>Berechtigungen</th>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-red">Administrator</span></td>
+                    <td>Vollzugriff</td>
+                    <td>Alle Funktionen inkl. Benutzerverwaltung, SMTP-Konfiguration</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-orange">Manager</span></td>
+                    <td>Datenverwalter</td>
+                    <td>Import, Bearbeiten, E-Mails senden, Fahrzeuge verwalten</td>
+                </tr>
+                <tr>
+                    <td><span class="badge badge-green">Betrachter</span></td>
+                    <td>Nur Lesezugriff</td>
+                    <td>Ansehen und CSV-Export</td>
+                </tr>
+            </table>
+
+            <h3>Passwort ändern</h3>
+            <p>Sie können Ihr Passwort jederzeit im Tab <strong>Einstellungen → Benutzer</strong> ändern.</p>
+
+            <h3>Abmelden</h3>
+            <p>Klicken Sie auf "Abmelden" in der Seitenleiste, um die Sitzung zu beenden.</p>
+        </section>
+
+        <section id="import">
+            <h2>Tab: Import & Analyse</h2>
+
+            <p>Der erste Tab dient zum Hochladen und Analysieren von DKV-Abrechnungen.</p>
+
+            <h3>Unterstützte Dateiformate</h3>
+            <table>
+                <tr>
+                    <th>Format</th>
+                    <th>Beschreibung</th>
+                    <th>Genauigkeit</th>
+                </tr>
+                <tr>
+                    <td><code>.csv</code></td>
+                    <td>DKV-Abrechnungs-CSV (Semikolon-getrennt)</td>
+                    <td><span class="badge badge-green">Hoch</span></td>
+                </tr>
+                <tr>
+                    <td><code>.pdf</code></td>
+                    <td>DKV E-Rechnung PDF</td>
+                    <td><span class="badge badge-orange">Mittel</span></td>
+                </tr>
+            </table>
+
+            <h3>Multi-Datei-Upload</h3>
+            <p>Sie können <strong>mehrere Dateien gleichzeitig</strong> hochladen:</p>
+            <ol>
+                <li>Klicken Sie auf "Browse files" oder ziehen Sie Dateien in den Upload-Bereich</li>
+                <li>Wählen Sie mehrere CSV- und/oder PDF-Dateien aus</li>
+                <li>Alle Dateien werden automatisch verarbeitet</li>
+            </ol>
+
+            <div class="success">
+                <strong>Automatischer Import:</strong> Die Daten werden automatisch zur Historie hinzugefügt - kein zusätzlicher Klick erforderlich!
+            </div>
+
+            <h3>Duplikatsprüfung</h3>
+            <p>Das System verhindert doppelte Einträge auf zwei Ebenen:</p>
+            <ul>
+                <li><strong>Datei-Ebene:</strong> Bereits importierte Dateien werden erkannt und übersprungen</li>
+                <li><strong>Datensatz-Ebene:</strong> Identische Tankvorgänge (Kennzeichen + Datum + Zeit) werden nicht erneut gespeichert</li>
+            </ul>
+
+            <h3>Import-Statistik</h3>
+            <p>Nach dem Import sehen Sie eine Zusammenfassung:</p>
+            <ul>
+                <li>Anzahl neue Tankvorgänge</li>
+                <li>Anzahl importierte Dateien</li>
+                <li>Anzahl übersprungene Duplikate</li>
+            </ul>
+
+            <h3>Automatische Prüfungen</h3>
+            <p>Folgende Auffälligkeiten werden automatisch erkannt:</p>
+            <ul>
+                <li><span class="badge badge-orange">Warnung</span> Fehlender km-Stand</li>
+                <li><span class="badge badge-red">Fehler</span> km-Stand ist gesunken (negatives Delta)</li>
+                <li><span class="badge badge-orange">Warnung</span> Verbrauch unter Minimum (Standard: 3 L/100km)</li>
+                <li><span class="badge badge-red">Fehler</span> Verbrauch über Maximum (Standard: 25 L/100km)</li>
+            </ul>
+
+            <div class="info">
+                <strong>Fahrzeugspezifische Grenzen:</strong> Die Verbrauchsgrenzen können pro Fahrzeug individuell im Tab "Einstellungen → Fahrzeuge" angepasst werden.
+            </div>
+
+            <div class="highlight">
+                <strong>Hinweis:</strong> Nur Kraftstoff-Tankvorgänge (Diesel, Super, Benzin) werden analysiert. AdBlue wird gefiltert.
+            </div>
+        </section>
+
+        <section id="verbrauch">
+            <h2>Tab: Verbrauchsentwicklung</h2>
+
+            <p>Visualisierung der Verbrauchsdaten über Zeit.</p>
+
+            <h3>Filter</h3>
+            <p>Grenzen Sie die Analyse auf einen bestimmten Zeitraum und Fahrzeuge ein:</p>
+            <ul>
+                <li><strong>Von:</strong> Startdatum für die Analyse</li>
+                <li><strong>Bis:</strong> Enddatum für die Analyse</li>
+                <li><strong>Fahrzeuge:</strong> Multiselect für einzelne oder mehrere Fahrzeuge</li>
+            </ul>
+
+            <h3>Verfügbare Diagramme</h3>
+
+            <h4>1. Verbrauch pro Tankvorgang</h4>
+            <p>Liniendiagramm mit allen Tankvorgängen. Punkte zeigen einzelne Tankungen, Linien verbinden chronologisch.</p>
+
+            <h4>2. Monatlicher Durchschnittsverbrauch</h4>
+            <p>Balkendiagramm mit aggregierten Monatswerten.</p>
+
+            <h4>3. Monatliche Kosten</h4>
+            <p>Balkendiagramm der Gesamtkosten pro Monat und Fahrzeug.</p>
+
+            <h4>4. Gesamtstatistik</h4>
+            <p>Tabelle mit Kennzahlen: Durchschnittsverbrauch, Min/Max, Gesamtmenge, Gesamtkosten.</p>
+        </section>
+
+        <section id="historie">
+            <h2>Tab: Historie</h2>
+
+            <p>Übersicht aller gespeicherten Tankvorgänge.</p>
+
+            <h3>Filterfunktionen</h3>
+            <table>
+                <tr>
+                    <th>Filter</th>
+                    <th>Optionen</th>
+                </tr>
+                <tr>
+                    <td>Fahrzeug</td>
+                    <td>Alle / einzelnes Kennzeichen</td>
+                </tr>
+                <tr>
+                    <td>Zeitraum</td>
+                    <td>Alle / Letzte 30 Tage / Letzte 90 Tage / Letztes Jahr</td>
+                </tr>
+                <tr>
+                    <td>Quelldatei</td>
+                    <td>Alle / spezifische Import-Datei</td>
+                </tr>
+            </table>
+
+            <h3>Angezeigte Spalten</h3>
+            <table>
+                <tr>
+                    <th>Spalte</th>
+                    <th>Beschreibung</th>
+                    <th>Editierbar</th>
+                </tr>
+                <tr>
+                    <td>Status</td>
+                    <td>Zeigt Auffälligkeiten: ⚠️ = offen, ✓ = quittiert.<br>
+                        Kurzformen: km? (fehlt), km↓ (gesunken), L↓ (zu niedrig), L↑ (zu hoch)</td>
+                    <td>Nein</td>
+                </tr>
+                <tr>
+                    <td>Fahrzeug</td>
+                    <td>Kennzeichen des Fahrzeugs</td>
+                    <td>Nein</td>
+                </tr>
+                <tr>
+                    <td>Datum / Zeit</td>
+                    <td>Zeitpunkt des Tankvorgangs</td>
+                    <td>Nein</td>
+                </tr>
+                <tr>
+                    <td>km-Stand</td>
+                    <td>Kilometerstand beim Tanken</td>
+                    <td><strong>Ja</strong></td>
+                </tr>
+                <tr>
+                    <td>km gefahren</td>
+                    <td>Differenz zum vorherigen Tankvorgang</td>
+                    <td>Nein (berechnet)</td>
+                </tr>
+                <tr>
+                    <td>Liter</td>
+                    <td>Getankte Menge</td>
+                    <td><strong>Ja</strong></td>
+                </tr>
+                <tr>
+                    <td>L/100km</td>
+                    <td>Berechneter Verbrauch</td>
+                    <td>Nein (berechnet)</td>
+                </tr>
+                <tr>
+                    <td>EUR</td>
+                    <td>Kosten des Tankvorgangs</td>
+                    <td><strong>Ja</strong></td>
+                </tr>
+                <tr>
+                    <td>Tankstelle</td>
+                    <td>Name der Tankstelle</td>
+                    <td><strong>Ja</strong></td>
+                </tr>
+                <tr>
+                    <td>Quelldatei</td>
+                    <td>Ursprüngliche Import-Datei</td>
+                    <td>Nein</td>
+                </tr>
+            </table>
+
+            <div class="info">
+                <strong>Sortierung:</strong> Bei Fahrzeugen, die mehrfach am selben Tag tanken, werden die Einträge nach Datum <em>und</em> Zeit sortiert, um die korrekte Reihenfolge und Verbrauchsberechnung sicherzustellen.
+            </div>
+
+            <h3>Direkte Tabellenbearbeitung</h3>
+            <p>Nach der Anmeldung (mit entsprechender Berechtigung) können Sie Daten direkt bearbeiten:</p>
+            <ol>
+                <li><strong>Doppelklick</strong> auf die gewünschte Zelle</li>
+                <li>Wert ändern und mit <code>Enter</code> oder <code>Tab</code> bestätigen</li>
+                <li>Button <strong>"Änderungen speichern"</strong> klicken</li>
+            </ol>
+
+            <div class="success">
+                <strong>Automatische Neuberechnung:</strong> Beim Speichern werden <code>km gefahren</code> und <code>L/100km</code> automatisch für alle Einträge des Fahrzeugs neu berechnet!
+            </div>
+
+            <h3>Datenverwaltung</h3>
+            <ul>
+                <li><strong>CSV exportieren:</strong> Lädt alle Daten als CSV-Datei herunter</li>
+                <li><strong>Historie löschen:</strong> Entfernt alle gespeicherten Daten (nur Admin)</li>
+            </ul>
+
+            <h3>Durchgeführte Importe</h3>
+            <p>Am Ende der Seite finden Sie eine Liste aller importierten Dateien mit Datum und Anzahl der Vorgänge. Bei mehr als 5 Dateien wird die Liste automatisch eingeklappt und kann bei Bedarf ausgeklappt werden.</p>
+        </section>
+
+        <section id="auffaelligkeiten">
+            <h2>Tab: Auffälligkeiten</h2>
+
+            <p>Zentrale Übersicht aller erkannten Probleme in den Daten.</p>
+
+            <h3>Übersichts-Metriken</h3>
+            <ul>
+                <li><strong>Offen:</strong> Anzahl nicht-quittierter Auffälligkeiten</li>
+                <li><strong>Fehler:</strong> Schwerwiegende Probleme (rot)</li>
+                <li><strong>Warnungen:</strong> Hinweise zur Prüfung (orange)</li>
+                <li><strong>Quittiert:</strong> Anzahl bereits bearbeiteter Auffälligkeiten</li>
+            </ul>
+
+            <h3>Fahrzeug-Filter</h3>
+            <p>Mit der Dropdown-Auswahl können Sie die Auffälligkeiten nach Fahrzeug filtern. Die Einträge werden chronologisch (älteste zuerst) sortiert, sodass Sie die Probleme systematisch abarbeiten können.</p>
+
+            <h3>Farbcodierung</h3>
+            <ul>
+                <li><span class="badge badge-red">Rot</span> - Fehler: km-Stand gesunken, Verbrauch über Maximum</li>
+                <li><span class="badge badge-orange">Orange</span> - Warnung: Fehlender km-Stand, Verbrauch unter Minimum</li>
+            </ul>
+
+            <h3>Auffälligkeiten quittieren</h3>
+            <p>Nicht jede Auffälligkeit ist ein echtes Problem. Manchmal gibt es plausible Erklärungen (z.B. Mietwagen mit Firmen-Tankkarte getankt). Diese Fälle können quittiert werden:</p>
+            <ol>
+                <li>Wählen Sie die Auffälligkeit aus der Dropdown-Liste</li>
+                <li>Geben Sie eine <strong>Begründung</strong> ein (Pflichtfeld, mind. 3 Zeichen)</li>
+                <li>Klicken Sie auf "Auffälligkeit quittieren"</li>
+            </ol>
+
+            <div class="info">
+                <strong>Quittierte Auffälligkeiten:</strong>
+                <ul>
+                    <li>Werden standardmäßig ausgeblendet (Filter: "Quittierte ausblenden")</li>
+                    <li>Zählen nicht mehr zur Anzahl im Tab-Titel</li>
+                    <li>Werden nicht per E-Mail an Besitzer gemeldet</li>
+                    <li>Sind mit Benutzer, Datum und Begründung dokumentiert</li>
+                    <li>Nach dem Quittieren bleibt der Tab aktiv (kein Sprung zu "Import")</li>
+                </ul>
+            </div>
+
+            <h3>Auffällige Einträge korrigieren</h3>
+            <p>Im unteren Bereich können Sie auffällige Daten direkt bearbeiten:</p>
+            <ul>
+                <li><strong>Fahrzeug-Filter:</strong> Wählen Sie ein spezifisches Fahrzeug zur Bearbeitung</li>
+                <li><strong>Textsuche:</strong> Durchsuchen Sie Tankstelle, Datum und Quelldatei</li>
+                <li><strong>Direkte Bearbeitung:</strong> km-Stand und Liter können direkt in der Tabelle geändert werden</li>
+            </ul>
+            <p>Nach dem Speichern werden alle Werte automatisch neu berechnet.</p>
+
+            <h3>E-Mail-Benachrichtigung</h3>
+            <p>Im unteren Bereich können Sie Fahrzeug-Besitzer per E-Mail über Auffälligkeiten informieren:</p>
+            <ol>
+                <li>Wählen Sie die Fahrzeuge aus, deren Besitzer benachrichtigt werden sollen</li>
+                <li>Klicken Sie auf "Besitzer benachrichtigen"</li>
+                <li>Die E-Mail enthält alle Auffälligkeiten des jeweiligen Fahrzeugs</li>
+            </ol>
+
+            <div class="info">
+                <strong>Voraussetzung:</strong> Fahrzeuge müssen im Tab Einstellungen einem Besitzer mit E-Mail zugeordnet sein. Der SMTP-Server muss konfiguriert sein.
+            </div>
+        </section>
+
+        <section id="einstellungen">
+            <h2>Tab: Einstellungen</h2>
+
+            <p>Verwaltung von Fahrzeugen, E-Mail und Benutzern. Die verfügbaren Bereiche hängen von Ihrer Rolle ab.</p>
+
+            <h3>Fahrzeuge</h3>
+            <p>Hier ordnen Sie Kennzeichen den Fahrzeug-Besitzern zu und konfigurieren fahrzeugspezifische Grenzen:</p>
+            <ul>
+                <li><strong>Kennzeichen:</strong> Wird automatisch aus der Historie erkannt</li>
+                <li><strong>Besitzer-Name:</strong> Name des Fahrzeughalters</li>
+                <li><strong>E-Mail:</strong> Für Benachrichtigungen bei Auffälligkeiten</li>
+                <li><strong>Min L/100km:</strong> Minimaler erwarteter Verbrauch (Standard: 3.0)</li>
+                <li><strong>Max L/100km:</strong> Maximaler erwarteter Verbrauch (Standard: 25.0)</li>
+                <li><strong>Notizen:</strong> Optionale Zusatzinformationen</li>
+            </ul>
+
+            <div class="info">
+                <strong>Verbrauchsgrenzen:</strong> Verbrauchswerte außerhalb der eingestellten Grenzen werden als Auffälligkeit markiert. So können z.B. für Transporter höhere Maximalwerte oder für Hybridfahrzeuge niedrigere Minimalwerte konfiguriert werden.
+            </div>
+
+            <h3>E-Mail (nur Admin)</h3>
+            <p>Dieser Bereich enthält zwei Sub-Tabs:</p>
+
+            <h4>Server-Einstellungen (SMTP)</h4>
+            <table>
+                <tr>
+                    <th>Feld</th>
+                    <th>Beschreibung</th>
+                    <th>Beispiel</th>
+                </tr>
+                <tr>
+                    <td>Server</td>
+                    <td>SMTP-Serveradresse</td>
+                    <td>smtp.gmail.com</td>
+                </tr>
+                <tr>
+                    <td>Port</td>
+                    <td>SMTP-Port (meist 587 für TLS)</td>
+                    <td>587</td>
+                </tr>
+                <tr>
+                    <td>Benutzer</td>
+                    <td>SMTP-Login</td>
+                    <td>user@gmail.com</td>
+                </tr>
+                <tr>
+                    <td>Passwort</td>
+                    <td>SMTP-Passwort oder App-Passwort</td>
+                    <td>****</td>
+                </tr>
+                <tr>
+                    <td>TLS</td>
+                    <td>Verschlüsselung aktivieren</td>
+                    <td>Ja (empfohlen)</td>
+                </tr>
+            </table>
+            <p>Mit "Verbindung testen" können Sie die Konfiguration prüfen.</p>
+
+            <h4>Vorlage</h4>
+            <p>Passen Sie die E-Mail-Texte an. Verfügbare Platzhalter:</p>
+            <ul>
+                <li><code>{besitzer_name}</code> - Name des Empfängers</li>
+                <li><code>{kennzeichen}</code> - Fahrzeug-Kennzeichen</li>
+                <li><code>{anzahl_gesamt}</code> - Gesamtzahl Auffälligkeiten</li>
+                <li><code>{anzahl_fehler}</code> - Anzahl Fehler</li>
+                <li><code>{anzahl_warnungen}</code> - Anzahl Warnungen</li>
+            </ul>
+
+            <h3>Benutzer (nur Admin)</h3>
+            <p>Verwaltung der Benutzerkonten mit drei Sub-Tabs:</p>
+
+            <h4>Übersicht</h4>
+            <p>Liste aller Benutzer mit Rolle und Status.</p>
+
+            <h4>Bearbeiten</h4>
+            <p>Bestehende Benutzer bearbeiten: Name, E-Mail, Rolle ändern oder Passwort zurücksetzen.</p>
+
+            <h4>Neu anlegen</h4>
+            <p>Neue Benutzerkonten erstellen mit Benutzername, Passwort und Rolle.</p>
+        </section>
+
+        <section id="datenformat">
+            <h2>Datenformate</h2>
+
+            <h3>CSV-Format (DKV-Abrechnung)</h3>
+            <ul>
+                <li>Trennzeichen: Semikolon (<code>;</code>)</li>
+                <li>Zahlenformat: Deutsch (<code>1.234,56</code>)</li>
+                <li>Header: Zeile 1</li>
+                <li>Daten: Ab Zeile 6</li>
+            </ul>
+
+            <h3>PDF-Format (DKV E-Rechnung)</h3>
+            <p>PDF-Rechnungen werden automatisch geparst.</p>
+
+            <div class="highlight">
+                <strong>Empfehlung:</strong> Wenn möglich, nutzen Sie das CSV-Format für präzisere Daten.
+            </div>
+
+            <h3>Datenspeicherung</h3>
+            <p>Alle Daten werden lokal in JSON-Dateien gespeichert:</p>
+            <pre><code>{
+  "tankvorgaenge": [
+    {
+      "kennzeichen": "AB-CD 123",
+      "datum": "2025-12-01",
+      "zeit": "14:30",
+      "km_stand": 85000,
+      "menge_liter": 45.5,
+      "verbrauch": 8.2,
+      "betrag_eur": 75.50,
+      "tankstelle": "ARAL Hamburg",
+      "quelldatei": "abrechnung_2025_12.csv"
+    }
+  ],
+  "importe": [...]
+}</code></pre>
+        </section>
+
+        <section id="fehlerbehebung">
+            <h2>Fehlerbehebung</h2>
+
+            <h3>Programm startet nicht</h3>
+            <div class="highlight">
+                <strong>Problem:</strong> Fehlermeldung "Python nicht gefunden"<br>
+                <strong>Lösung:</strong> Installieren Sie Python 3 von <a href="https://python.org">python.org</a>
+            </div>
+
+            <h3>Datei wird nicht erkannt</h3>
+            <div class="highlight">
+                <strong>Problem:</strong> CSV zeigt keine Daten<br>
+                <strong>Lösung:</strong> Prüfen Sie das DKV-Format (Semikolon-Trennung, deutsche Zahlen)
+            </div>
+
+            <h3>Bereits importierte Datei</h3>
+            <div class="highlight">
+                <strong>Problem:</strong> Datei wird als "bereits importiert" angezeigt<br>
+                <strong>Lösung:</strong> Benennen Sie die Datei um oder löschen Sie den entsprechenden Import aus der Historie
+            </div>
+
+            <h3>E-Mail wird nicht gesendet</h3>
+            <div class="highlight">
+                <strong>Problem:</strong> SMTP-Fehler beim Senden<br>
+                <strong>Lösung:</strong> Prüfen Sie die SMTP-Konfiguration. Bei Gmail benötigen Sie ein App-Passwort.
+            </div>
+
+            <h3>Daten zurücksetzen</h3>
+            <ol>
+                <li>Im Programm: Tab "Historie" → "Gesamte Historie löschen" (nur Admin)</li>
+                <li>Manuell: Datei <code>historie.json</code> im Projektordner löschen</li>
+            </ol>
+        </section>
+
+        <section>
+            <h2>Dateien im Projektordner</h2>
+            <table>
+                <tr>
+                    <th>Datei</th>
+                    <th>Beschreibung</th>
+                </tr>
+                <tr>
+                    <td><code>dkv_checker.py</code></td>
+                    <td>Hauptprogramm</td>
+                </tr>
+                <tr>
+                    <td><code>requirements.txt</code></td>
+                    <td>Python-Abhängigkeiten</td>
+                </tr>
+                <tr>
+                    <td><code>start.command</code></td>
+                    <td>Startskript (macOS)</td>
+                </tr>
+                <tr>
+                    <td><code>handbuch.html</code></td>
+                    <td>Diese Dokumentation</td>
+                </tr>
+                <tr>
+                    <td><code>historie.json</code></td>
+                    <td>Gespeicherte Tankdaten</td>
+                </tr>
+                <tr>
+                    <td><code>fahrzeuge.json</code></td>
+                    <td>Fahrzeug-Besitzer-Zuordnung</td>
+                </tr>
+                <tr>
+                    <td><code>smtp_config.json</code></td>
+                    <td>E-Mail-Server-Konfiguration</td>
+                </tr>
+                <tr>
+                    <td><code>email_vorlage.json</code></td>
+                    <td>E-Mail-Textvorlage</td>
+                </tr>
+                <tr>
+                    <td><code>benutzer.json</code></td>
+                    <td>Benutzerkonten (gehashte Passwörter)</td>
+                </tr>
+                <tr>
+                    <td><code>venv/</code></td>
+                    <td>Virtuelle Python-Umgebung</td>
+                </tr>
+            </table>
+        </section>
+    </div>
+
+    <footer>
+        <p>DKV Abrechnungs-Checker &copy; 2025 | Version 2.2</p>
+        <p>Bei Fragen oder Problemen wenden Sie sich an den Administrator.</p>
+    </footer>
+</body>
+</html>
