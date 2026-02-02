@@ -264,9 +264,9 @@ Im Import-Tab können Tankvorgänge manuell erfasst werden (z.B. für private Ta
 - Duplikatsprüfung (Kennzeichen + Datum + Zeit)
 - Erfordert Recht "importieren"
 
-## HTTPS mit Nginx
+## Docker Deployment
 
-Docker-basiertes Setup mit HTTPS-Unterstützung:
+### Lokal mit HTTPS (Nginx)
 
 ```bash
 # 1. SSL-Zertifikat generieren
@@ -283,6 +283,51 @@ docker-compose up -d
 - Automatische HTTP→HTTPS Umleitung
 - WebSocket-Support für Streamlit
 - DKV-Checker nur intern erreichbar (Port 8501)
+
+### Docker Hub / GitHub Container Registry
+
+**Image:** `ghcr.io/christiansauervireq/dkv-checker:latest`
+
+**Multi-Arch:** Unterstützt AMD64 und ARM64 (Intel/AMD + Apple Silicon/ARM-NAS)
+
+```bash
+# Image ziehen
+docker pull ghcr.io/christiansauervireq/dkv-checker:latest
+
+# Container starten
+docker run -d \
+  --name dkv-checker \
+  -p 8501:8501 \
+  -v /pfad/zu/daten:/data \
+  --restart unless-stopped \
+  ghcr.io/christiansauervireq/dkv-checker:latest
+```
+
+### Synology NAS Deployment
+
+**Container-Einstellungen:**
+| Einstellung | Wert |
+|-------------|------|
+| Image | `ghcr.io/christiansauervireq/dkv-checker:latest` |
+| Port | Container `8501` → Lokal `8501` |
+| Volume | `/volume1/docker/dkv-checker` → `/data` |
+
+**Reverse Proxy für HTTPS (Systemsteuerung → Anmeldeportal → Erweitert → Reverse Proxy):**
+
+| Quelle | Ziel |
+|--------|------|
+| HTTPS, Port 8443 | HTTP, localhost:8501 |
+
+**Wichtig:** Unter "Benutzerdefinierte Kopfzeile" → "WebSocket" aktivieren für Streamlit-Unterstützung.
+
+### Multi-Arch Image bauen und pushen
+
+```bash
+# Mit buildx für AMD64 + ARM64
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t ghcr.io/christiansauervireq/dkv-checker:latest \
+  --push .
+```
 
 ## Mehrsprachigkeit (i18n)
 
