@@ -1102,7 +1102,7 @@ with tab1:
 
                     # Prüfungen
                     fehlende_km = fahrzeug_df[fahrzeug_df["km_Stand"].isna() | (fahrzeug_df["km_Stand"] == 0)]
-                    for _, row in fehlende_km.iterrows():
+                    for idx, row in fehlende_km.iterrows():
                         warnungen.append({
                             "Fahrzeug": kennzeichen,
                             "Datum": row["Datum"].strftime("%d.%m.%Y") if pd.notna(row["Datum"]) else "?",
@@ -1144,7 +1144,7 @@ with tab1:
                     st.dataframe(styled_df, use_container_width=True)
 
                     # Weitere Prüfungen
-                    for _, row in fahrzeug_df.iterrows():
+                    for idx, row in fahrzeug_df.iterrows():
                         if pd.notna(row["km_differenz"]) and row["km_differenz"] < 0:
                             warnungen.append({
                                 "Fahrzeug": kennzeichen,
@@ -1209,7 +1209,7 @@ with tab1:
 
                     for dateiname, df_fuel in alle_daten:
                         neue_vorgaenge = 0
-                        for _, row in df_fuel.iterrows():
+                        for idx, row in df_fuel.iterrows():
                             eintrag = {
                                 "kennzeichen": row["Kennzeichen"],
                                 "datum": row["Datum"].strftime("%Y-%m-%d") if pd.notna(row["Datum"]) else None,
