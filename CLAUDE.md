@@ -22,7 +22,7 @@ streamlit run dkv_checker.py
 
 ## Architektur
 
-Einzelne Streamlit-App (`dkv_checker.py`, ~2380 Zeilen) mit fünf Tabs:
+Einzelne Streamlit-App (`dkv_checker.py`, ~2700 Zeilen) mit fünf Tabs:
 
 1. **Import & Analyse**: Multi-Datei-Upload (CSV/PDF), automatischer Import, Duplikatsprüfung, **manuelle Tankvorgänge**
 2. **Verbrauchsentwicklung**: Altair-Charts mit Datumsfilter (Von/Bis), Fahrzeugauswahl, monatliche Aggregation
@@ -103,12 +103,15 @@ dkv-checker/
 | `lade_smtp_config()` / `speichere_smtp_config()` | SMTP-Konfiguration |
 | `lade_email_vorlage()` / `speichere_email_vorlage()` | E-Mail-Vorlage |
 | `erstelle_auffaelligkeiten_email()` | Erstellt HTML-E-Mail mit Platzhaltern |
+| `_erstelle_smtp_verbindung()` | SMTP-Verbindung (SSL/STARTTLS/plain je nach Port) |
 | `teste_smtp_verbindung()` | Testet SMTP-Serververbindung |
 | `sende_benachrichtigung()` | Versendet E-Mail an Besitzer |
 | `hash_passwort()` / `pruefe_passwort()` | PBKDF2-SHA256 Passwort-Hashing |
 | `authentifiziere_benutzer()` | Login mit gehashtem Passwort |
 | `aktueller_benutzer_hat_recht()` | Rechteprüfung für Aktionen |
 | `speichere_manuellen_tankvorgang()` | Speichert manuell erfasste Tankvorgänge |
+| `generiere_temp_passwort()` | Kryptographisch sicheres temporäres Passwort |
+| `sende_passwort_reset_email()` | Passwort-Reset per E-Mail (keine Username-Enumeration) |
 | `_()` / `t()` | Übersetzungsfunktionen für i18n |
 
 ## Prüflogik
@@ -174,6 +177,18 @@ Drei Rollen mit unterschiedlichen Rechten:
 
 **Passwort-Hashing:** PBKDF2-SHA256 mit 100.000 Iterationen und zufälligem Salt.
 
+### Passwort-Reset
+
+**Admin-Reset (Einstellungen → Benutzer → Bearbeiten):**
+- Button "Temp. Passwort generieren" erzeugt kryptographisch sicheres Passwort via `secrets.token_urlsafe()`
+- Passwort wird einmalig angezeigt, beim Speichern wird `muss_passwort_aendern: True` gesetzt
+
+**Self-Service "Passwort vergessen?" (Login-Screen):**
+- Expander unter dem Login-Formular in der Sidebar
+- Benutzer gibt Benutzernamen ein → temporäres Passwort wird per E-Mail versendet
+- **Sicherheit:** Keine Username-Enumeration (immer generische Meldung), 60s Rate-Limiting (session-basiert)
+- Benötigt konfigurierte SMTP-Einstellungen und hinterlegte E-Mail-Adresse beim Benutzer
+
 ## Multi-Datei-Import
 
 - Mehrere CSV/PDF-Dateien gleichzeitig hochladbar
@@ -211,6 +226,13 @@ Nach Login können Daten direkt in Tabellen bearbeitet werden (je nach Rolle):
 7. **Tab-Navigation**: Einstellungen-Tab verwendet verschachtelte `st.tabs()`. Nach Quittierung: JavaScript-Workaround um im Tab zu bleiben (`components.html` mit Tab-Klick).
 
 8. **Datumsfilter**: Verbrauchsentwicklung hat Von/Bis-Datumsauswahl mit `st.date_input`.
+
+## SMTP-Verbindung
+
+Die Hilfsfunktion `_erstelle_smtp_verbindung()` wählt automatisch das Protokoll:
+- **Port 465:** `SMTP_SSL` (implicit SSL/TLS, z.B. IONOS)
+- **Port 587:** `SMTP` + `STARTTLS`
+- **Andere Ports ohne TLS:** Plain `SMTP`
 
 ## Bekannte Einschränkungen
 
@@ -347,6 +369,10 @@ text = t("import.import_erfolgreich", "de", count=5, files=2)
 **Sprachauswahl:** In der Sidebar über das Dropdown-Menü.
 
 **Erweiterung:** Neue Strings in `i18n.py` → `TEXTE` Dictionary hinzufügen.
+
+## Version
+
+**Aktuelle Version:** 1.1 (15.02.2026)
 
 ## Nächste mögliche Erweiterungen
 
