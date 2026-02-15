@@ -512,17 +512,28 @@ def erstelle_email_betreff(kennzeichen, auffaelligkeiten, vorlage=None):
     betreff = ersetze_platzhalter(vorlage.get("betreff", DEFAULT_EMAIL_VORLAGE["betreff"]), platzhalter)
     return betreff
 
+def _erstelle_smtp_verbindung(config, timeout=10):
+    """Erstellt SMTP-Verbindung basierend auf Port und TLS-Einstellung"""
+    port = config.get("port", 587)
+    if port == 465:
+        # Port 465: Implicit SSL/TLS (SMTPS)
+        server = smtplib.SMTP_SSL(config["server"], port, timeout=timeout)
+    elif config.get("tls", True):
+        # Port 587: STARTTLS
+        server = smtplib.SMTP(config["server"], port, timeout=timeout)
+        server.starttls()
+    else:
+        # Kein TLS (z.B. Port 25)
+        server = smtplib.SMTP(config["server"], port, timeout=timeout)
+    return server
+
 def teste_smtp_verbindung(config):
     """Testet die SMTP-Verbindung und gibt (erfolg, nachricht) zurück"""
     if not config.get("server"):
         return False, "Kein SMTP-Server konfiguriert"
 
     try:
-        if config.get("tls", True):
-            server = smtplib.SMTP(config["server"], config.get("port", 587), timeout=10)
-            server.starttls()
-        else:
-            server = smtplib.SMTP(config["server"], config.get("port", 25), timeout=10)
+        server = _erstelle_smtp_verbindung(config, timeout=10)
 
         if config.get("benutzer") and config.get("passwort"):
             server.login(config["benutzer"], config["passwort"])
@@ -554,11 +565,7 @@ def sende_benachrichtigung(smtp_config, empfaenger_email, betreff, html_body):
         html_part = MIMEText(html_body, "html", "utf-8")
         msg.attach(html_part)
 
-        if smtp_config.get("tls", True):
-            server = smtplib.SMTP(smtp_config["server"], smtp_config.get("port", 587), timeout=30)
-            server.starttls()
-        else:
-            server = smtplib.SMTP(smtp_config["server"], smtp_config.get("port", 25), timeout=30)
+        server = _erstelle_smtp_verbindung(smtp_config, timeout=30)
 
         if smtp_config.get("benutzer") and smtp_config.get("passwort"):
             server.login(smtp_config["benutzer"], smtp_config["passwort"])
