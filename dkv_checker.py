@@ -13,6 +13,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from io import StringIO, BytesIO
 from datetime import datetime
+import time
 import zipfile
 
 # Mehrsprachigkeit importieren
@@ -73,6 +74,8 @@ if "aktiver_tab" not in st.session_state:
     st.session_state["aktiver_tab"] = None
 if "sprache" not in st.session_state:
     st.session_state["sprache"] = "de"
+if "pw_reset_cooldown" not in st.session_state:
+    st.session_state["pw_reset_cooldown"] = 0
 
 # Hilfsfunktion für Übersetzungen mit aktueller Sprache
 def _(key, **kwargs):
@@ -358,6 +361,10 @@ def loesche_benutzer(benutzername):
     speichere_benutzer(benutzer_daten)
     return True, "Benutzer gelöscht"
 
+def generiere_temp_passwort(laenge=10):
+    """Generiert ein temporäres Passwort"""
+    return secrets.token_urlsafe(laenge)[:laenge]
+
 def hole_besitzer_fuer_kennzeichen(fahrzeuge, kennzeichen):
     """Gibt Besitzer-Daten für ein Kennzeichen zurück oder None"""
     for f in fahrzeuge.get("fahrzeuge", []):
@@ -562,6 +569,44 @@ def sende_benachrichtigung(smtp_config, empfaenger_email, betreff, html_body):
         return True, f"E-Mail an {empfaenger_email} gesendet"
     except Exception as e:
         return False, f"Fehler beim Senden: {str(e)}"
+
+def sende_passwort_reset_email(benutzername, sprache="de"):
+    """Sendet ein temporäres Passwort per E-Mail. Gibt immer generische Meldung zurück (keine Username-Enumeration)."""
+    smtp_config = lade_smtp_config()
+    if not smtp_config.get("server") or not smtp_config.get("absender_email"):
+        return False, t("passwort_reset.smtp_nicht_konfiguriert", sprache)
+
+    benutzer = finde_benutzer(benutzername)
+    if not benutzer or not benutzer.get("email"):
+        # Generische Meldung — kein Hinweis ob Benutzer existiert
+        return True, t("passwort_reset.email_gesendet_info", sprache)
+
+    temp_pw = generiere_temp_passwort()
+    aktualisiere_benutzer(benutzername, {
+        "passwort_hash": hash_passwort(temp_pw),
+        "muss_passwort_aendern": True
+    })
+
+    name = benutzer.get("name", benutzername)
+    betreff = t("passwort_reset.betreff", sprache)
+    html_body = f"""
+    <html><body style="font-family: Arial, sans-serif;">
+    <h2>{t("passwort_reset.titel", sprache)}</h2>
+    <p>{t("passwort_reset.anrede", sprache, name=name)}</p>
+    <p>{t("passwort_reset.text", sprache)}</p>
+    <p style="font-size: 18px; font-weight: bold; background-color: #f0f0f0; padding: 10px; border-radius: 5px;">{temp_pw}</p>
+    <p><em>{t("passwort_reset.hinweis", sprache)}</em></p>
+    <hr>
+    <small>{t("passwort_reset.fusszeile", sprache)}</small>
+    </body></html>
+    """
+
+    try:
+        sende_benachrichtigung(smtp_config, benutzer["email"], betreff, html_body)
+    except Exception:
+        pass  # Fehler nicht an Benutzer weitergeben
+
+    return True, t("passwort_reset.email_gesendet_info", sprache)
 
 def parse_dkv_csv(content):
     """DKV-CSV parsen und DataFrame zurückgeben"""
@@ -957,6 +1002,25 @@ with st.sidebar:
                     st.rerun()
                 else:
                     st.error(_("login.ungueltige_daten"))
+
+        # Passwort vergessen
+        with st.expander(_("passwort_reset.vergessen")):
+            st.caption(_("passwort_reset.info"))
+            with st.form("pw_reset_form"):
+                reset_username = st.text_input(_("login.benutzername"), key="reset_username")
+                reset_submitted = st.form_submit_button(_("passwort_reset.senden"))
+
+                if reset_submitted:
+                    jetzt = time.time()
+                    if not reset_username.strip():
+                        st.error(_("passwort_reset.benutzername_fehlt"))
+                    elif jetzt - st.session_state.get("pw_reset_cooldown", 0) < 60:
+                        st.warning(_("passwort_reset.zu_frueh"))
+                    else:
+                        st.session_state["pw_reset_cooldown"] = jetzt
+                        sprache = st.session_state.get("sprache", "de")
+                        erfolg, meldung = sende_passwort_reset_email(reset_username.strip(), sprache)
+                        st.info(meldung)
 
     st.markdown("---")
     st.markdown(f"### {_('sidebar.info')}")
@@ -2563,11 +2627,26 @@ with tab5:
                             edit_aktiv = st.checkbox(_("einstellungen.aktiv"), value=ausgewaehlter.get("aktiv", True), key="edit_aktiv")
                             edit_pw_reset = st.checkbox(_("einstellungen.pw_reset"), value=ausgewaehlter.get("muss_passwort_aendern", False), key="edit_pw_reset")
                             neues_pw = st.text_input(_("einstellungen.neues_pw"), type="password", key="edit_neues_pw")
+                            if st.button(_("einstellungen.temp_pw_generieren"), key="btn_temp_pw"):
+                                temp_pw = generiere_temp_passwort()
+                                st.session_state["temp_pw_generiert"] = temp_pw
+                            if "temp_pw_generiert" in st.session_state:
+                                st.success(_("einstellungen.temp_pw_generiert", passwort=st.session_state["temp_pw_generiert"]))
+                                st.info(_("einstellungen.temp_pw_hinweis"))
                         col1, col2, col3 = st.columns(3)
                         with col1:
                             if st.button(_("allgemein.speichern"), type="primary", key="save_benutzer"):
                                 updates = {"name": edit_name, "email": edit_email, "rolle": edit_rolle, "aktiv": edit_aktiv, "muss_passwort_aendern": edit_pw_reset}
-                                if neues_pw:
+                                # Temp. Passwort hat Vorrang vor manuellem Passwort
+                                if "temp_pw_generiert" in st.session_state:
+                                    updates["passwort_hash"] = hash_passwort(st.session_state["temp_pw_generiert"])
+                                    updates["muss_passwort_aendern"] = True
+                                    del st.session_state["temp_pw_generiert"]
+                                    aktualisiere_benutzer(benutzer_auswahl, updates)
+                                    st.success(_("einstellungen.benutzer_gespeichert"))
+                                    del st.session_state["benutzer_bearbeiten"]
+                                    st.rerun()
+                                elif neues_pw:
                                     if len(neues_pw) < 6:
                                         st.error(_("einstellungen.passwort_min_zeichen"))
                                     else:
@@ -2583,6 +2662,7 @@ with tab5:
                                     st.rerun()
                         with col2:
                             if st.button(_("allgemein.abbrechen"), key="cancel_edit"):
+                                st.session_state.pop("temp_pw_generiert", None)
                                 del st.session_state["benutzer_bearbeiten"]
                                 st.rerun()
 
