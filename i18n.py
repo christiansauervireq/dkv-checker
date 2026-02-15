@@ -553,7 +553,7 @@ Quittierte Einträge werden ausgeblendet und nicht per E-Mail gemeldet.""",
 
 ---
 
-**Software-Version:** 1.0
+**Software-Version:** 1.1 (15.02.2026)
 **Entwicklung:** Christian Sauer
 
 Diese Software ist kostenlos. Wenn Sie die Weiterentwicklung unterstützen möchten:"""
@@ -1137,7 +1137,7 @@ Acknowledged entries are hidden and not reported via email.""",
 
 ---
 
-**Software version:** 1.0
+**Software version:** 1.1 (2026-02-15)
 **Development:** Christian Sauer
 
 This software is free. If you would like to support further development:"""

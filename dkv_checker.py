@@ -2808,7 +2808,7 @@ Datenschutzbeauftragten Ihrer Organisation.
 """)
 
         st.markdown("---")
-        st.caption("© 2025 Christian Sauer")
+        st.caption("© 2026 Christian Sauer")
 
 # --- TAB 6: Hilfe ---
 with tab6:
